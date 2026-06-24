@@ -8,35 +8,50 @@ import numpy as np
 import concurrent.futures
 import requests
 from bs4 import BeautifulSoup
-import sqlite3
 import time
 import re
 import os
+from sqlalchemy import create_engine, text
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'news.db') if '__file__' in dir() else 'news.db'
 
-def get_news_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
+def get_db_engine():
+    if 'connections' in st.secrets and 'supabase' in st.secrets['connections']:
+        return create_engine(st.secrets['connections']['supabase']['url'])
+    else:
+        return create_engine(f'sqlite:///{DB_PATH}')
+
+def is_postgres():
+    return 'connections' in st.secrets and 'supabase' in st.secrets['connections']
 
 def init_db():
-    conn = get_news_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS news (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            url TEXT UNIQUE NOT NULL,
-            source TEXT NOT NULL,
-            published_date TEXT NOT NULL,
-            summary TEXT,
-            keyword TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    engine = get_db_engine()
+    with engine.connect() as conn:
+        if is_postgres():
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS news (
+                    id SERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    url TEXT UNIQUE NOT NULL,
+                    source TEXT NOT NULL,
+                    published_date TEXT NOT NULL,
+                    summary TEXT,
+                    keyword TEXT
+                )
+            '''))
+        else:
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS news (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    url TEXT UNIQUE NOT NULL,
+                    source TEXT NOT NULL,
+                    published_date TEXT NOT NULL,
+                    summary TEXT,
+                    keyword TEXT
+                )
+            '''))
+        conn.commit()
 
 init_db()
 
@@ -136,11 +151,10 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None, status_plac
         s_date = e_date - timedelta(days=7)
     
     # 기존에 수집된 URL 목록 로드 (중복 탐색 방지용)
-    conn = get_news_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT url FROM news WHERE keyword = ?", (db_keyword_label,))
-    existing_urls = {row[0] for row in cursor.fetchall()}
-    conn.close()
+    engine = get_db_engine()
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT url FROM news WHERE keyword = :kw"), {"kw": db_keyword_label})
+        existing_urls = {row[0] for row in result}
     
     total_days = (e_date - s_date).days + 1
     if total_days <= 0: total_days = 1
@@ -278,21 +292,33 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None, status_plac
         status_placeholder.info(f"DB 저장 중... (총 {len(all_news)}건 처리)")
     
     # DB 저장
-    conn = get_news_connection()
-    cursor = conn.cursor()
+    engine = get_db_engine()
     saved_count = 0
-    for item in all_news:
-        try:
-            cursor.execute('''
-                INSERT OR IGNORE INTO news (title, url, source, published_date, summary, keyword)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (item['title'], item['url'], item['source'], item['published_date'], item['summary'], db_keyword_label))
-            if cursor.rowcount > 0:
-                saved_count += 1
-        except Exception:
-            pass
-    conn.commit()
-    conn.close()
+    with engine.connect() as conn:
+        for item in all_news:
+            try:
+                if is_postgres():
+                    res = conn.execute(text('''
+                        INSERT INTO news (title, url, source, published_date, summary, keyword)
+                        VALUES (:title, :url, :source, :published_date, :summary, :keyword)
+                        ON CONFLICT (url) DO NOTHING
+                    '''), {
+                        "title": item['title'], "url": item['url'], "source": item['source'],
+                        "published_date": item['published_date'], "summary": item['summary'], "keyword": db_keyword_label
+                    })
+                else:
+                    res = conn.execute(text('''
+                        INSERT OR IGNORE INTO news (title, url, source, published_date, summary, keyword)
+                        VALUES (:title, :url, :source, :published_date, :summary, :keyword)
+                    '''), {
+                        "title": item['title'], "url": item['url'], "source": item['source'],
+                        "published_date": item['published_date'], "summary": item['summary'], "keyword": db_keyword_label
+                    })
+                if res.rowcount > 0:
+                    saved_count += 1
+            except Exception:
+                pass
+        conn.commit()
     
     return all_news, saved_count
 
@@ -559,22 +585,22 @@ if st.session_state.get('view_mode') == 'news':
         st.success(f"크롤링 완료! {len(news_items)}개 기사 발견, {saved_count}개 신규 DB 저장.")
         st.session_state['news_searched'] = False
     
-    conn = get_news_connection()
-    query_params = []
+    engine = get_db_engine()
+    query_params = {}
     base_query = 'SELECT title, url, source, published_date, summary FROM news'
     where_clauses = []
     
     if keyword.strip():
-        where_clauses.append("keyword = ?")
-        query_params.append(display_keyword)
+        where_clauses.append("keyword = :kw")
+        query_params['kw'] = display_keyword
         
     # 다중 태그(키워드) 필터링 (OR 조건)
     tags = st.session_state.get('news_tags', [])
     if tags:
         tag_clauses = []
-        for tag in tags:
-            tag_clauses.append("(title LIKE ? OR summary LIKE ?)")
-            query_params.extend([f"%{tag}%", f"%{tag}%"])
+        for i, tag in enumerate(tags):
+            tag_clauses.append(f"(title LIKE :tag_{i} OR summary LIKE :tag_{i})")
+            query_params[f'tag_{i}'] = f"%{tag}%"
         # OR로 묶고 전체는 AND로 연결
         where_clauses.append("(" + " OR ".join(tag_clauses) + ")")
         
@@ -583,8 +609,7 @@ if st.session_state.get('view_mode') == 'news':
         
     base_query += " ORDER BY published_date DESC, id DESC LIMIT 50"
     
-    df_news = pd.read_sql_query(base_query, conn, params=tuple(query_params))
-    conn.close()
+    df_news = pd.read_sql_query(base_query, engine, params=query_params)
     
     col1, col2 = st.columns([1, 2])
     with col1:

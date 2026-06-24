@@ -5,3 +5,5 @@ plotly
 beautifulsoup4
 requests
 yfinance
+SQLAlchemy
+psycopg2-binary
