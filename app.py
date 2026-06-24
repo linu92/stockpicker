@@ -26,32 +26,36 @@ def is_postgres():
 
 def init_db():
     engine = get_db_engine()
-    with engine.connect() as conn:
-        if is_postgres():
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS news (
-                    id SERIAL PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    url TEXT UNIQUE NOT NULL,
-                    source TEXT NOT NULL,
-                    published_date TEXT NOT NULL,
-                    summary TEXT,
-                    keyword TEXT
-                )
-            '''))
-        else:
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS news (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    url TEXT UNIQUE NOT NULL,
-                    source TEXT NOT NULL,
-                    published_date TEXT NOT NULL,
-                    summary TEXT,
-                    keyword TEXT
-                )
-            '''))
-        conn.commit()
+    try:
+        with engine.connect() as conn:
+            if is_postgres():
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS news (
+                        id SERIAL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        url TEXT UNIQUE NOT NULL,
+                        source TEXT NOT NULL,
+                        published_date TEXT NOT NULL,
+                        summary TEXT,
+                        keyword TEXT
+                    )
+                '''))
+            else:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS news (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        url TEXT UNIQUE NOT NULL,
+                        source TEXT NOT NULL,
+                        published_date TEXT NOT NULL,
+                        summary TEXT,
+                        keyword TEXT
+                    )
+                '''))
+            conn.commit()
+    except Exception as e:
+        import streamlit as st
+        st.error(f"데이터베이스 연결 실패! 상세 에러: {str(e)}")
 
 init_db()
 
