@@ -40,6 +40,10 @@ def init_db():
                         keyword TEXT
                     )
                 '''))
+                try:
+                    conn.execute(text("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT FALSE"))
+                except:
+                    pass
             else:
                 conn.execute(text('''
                     CREATE TABLE IF NOT EXISTS news (
@@ -52,6 +56,10 @@ def init_db():
                         keyword TEXT
                     )
                 '''))
+                try:
+                    conn.execute(text("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT FALSE"))
+                except:
+                    pass
             conn.commit()
     except Exception as e:
         import streamlit as st
@@ -591,7 +599,7 @@ if st.session_state.get('view_mode') == 'news':
     
     engine = get_db_engine()
     query_params = {}
-    base_query = 'SELECT title, url, source, published_date, summary FROM news'
+    base_query = 'SELECT title, url, source, published_date, summary, is_read FROM news'
     where_clauses = []
     
     if keyword.strip():
@@ -660,18 +668,28 @@ if st.session_state.get('view_mode') == 'news':
                 
                 for i, cluster in enumerate(clusters):
                     main_row = cluster[0]
+                    is_read_mark = "✔️ " if main_row.get('is_read') else "🆕 "
                     if len(cluster) > 1:
-                        label = f"🔥 {main_row['title']} (외 비슷한 기사 {len(cluster)-1}건)\n({main_row['source']} 등 | {main_row['published_date']})"
+                        label = f"{is_read_mark}🔥 {main_row['title']} (외 비슷한 기사 {len(cluster)-1}건)\n({main_row['source']} 등 | {main_row['published_date']})"
                     else:
-                        label = f"{main_row['title']}\n({main_row['source']} | {main_row['published_date']})"
+                        label = f"{is_read_mark}{main_row['title']}\n({main_row['source']} | {main_row['published_date']})"
                         
                     if st.button(label, key=f"btn_group_{i}_{st.session_state['news_page']}", use_container_width=True):
                         st.session_state['selected_article_url'] = main_row['url']
+                        with get_db_engine().connect() as conn:
+                            conn.execute(text("UPDATE news SET is_read = TRUE WHERE url = :u"), {'u': main_row['url']})
+                            conn.commit()
+                        st.rerun()
             else:
                 for idx, row in df_news.iterrows():
-                    label = f"{row['title']}\n({row['source']} | {row['published_date']})"
+                    is_read_mark = "✔️ " if row.get('is_read') else "🆕 "
+                    label = f"{is_read_mark}{row['title']}\n({row['source']} | {row['published_date']})"
                     if st.button(label, key=f"btn_{idx}_{st.session_state['news_page']}", use_container_width=True):
                         st.session_state['selected_article_url'] = row['url']
+                        with get_db_engine().connect() as conn:
+                            conn.execute(text("UPDATE news SET is_read = TRUE WHERE url = :u"), {'u': row['url']})
+                            conn.commit()
+                        st.rerun()
                     
             # 페이지 컨트롤 (이전/다음 버튼)
             if total_pages > 1:
