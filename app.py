@@ -711,8 +711,9 @@ if st.session_state.get('view_mode') == 'news':
         selected_url = st.session_state.get('selected_article_url')
         if selected_url:
             st.markdown(f"**원본 링크**: [{selected_url}]({selected_url})")
-            html_content = fetch_article_html(selected_url)
-            components.html(html_content, height=800, scrolling=True)
+            with st.spinner("본문 내용을 불러오는 중입니다... (최초 1회만 약 1~2초 소요)"):
+                html_content = fetch_article_html(selected_url)
+                st.markdown(html_content, unsafe_allow_html=True)
         else:
             st.info("좌측 리스트에서 읽고 싶은 기사를 클릭해주세요.")
 
