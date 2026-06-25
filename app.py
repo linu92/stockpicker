@@ -676,6 +676,8 @@ if st.session_state.get('view_mode') == 'news':
         st.session_state['news_page'] = 1
         
     offset = (st.session_state['news_page'] - 1) * page_size
+    if where_clauses:
+        base_query += " WHERE " + " AND ".join(where_clauses)
     base_query += f" ORDER BY published_date DESC, id DESC LIMIT {page_size} OFFSET {offset}"
     
     df_news = pd.read_sql_query(text(base_query), engine, params=query_params)
