@@ -340,20 +340,31 @@ import streamlit.components.v1 as components
 def fetch_article_html(url):
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        res = requests.get(url, headers=headers, timeout=5)
-        res.encoding = 'euc-kr'
-        
         real_url = url
-        # 네이버 금융 뉴스는 실제 기사(n.news.naver.com)로 JS 리다이렉트하는 경우가 많음
-        match = re.search(r"href=['\"](https://n\.news\.naver\.com/.*?)['\"]", res.text)
-        if match:
-            real_url = match.group(1)
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url)
+        qs = urllib.parse.parse_qs(parsed.query)
+        
+        # 1. URL 파싱으로 다이렉트 접근 (리다이렉트 시간 단축)
+        if 'office_id' in qs and 'article_id' in qs:
+            oid = qs['office_id'][0]
+            aid = qs['article_id'][0]
+            real_url = f"https://n.news.naver.com/mnews/article/{oid}/{aid}"
             res = requests.get(real_url, headers=headers, timeout=5)
-            # n.news.naver.com은 보통 utf-8
-            if 'charset=euc-kr' in res.headers.get('content-type', '').lower():
-                res.encoding = 'euc-kr'
-            else:
-                res.encoding = 'utf-8'
+        else:
+            # 2. 구형 방식 (리다이렉트 추적)
+            res = requests.get(url, headers=headers, timeout=5)
+            res.encoding = 'euc-kr'
+            match = re.search(r"href=['\"](https://n\.news\.naver\.com/.*?)['\"]", res.text)
+            if match:
+                real_url = match.group(1)
+                res = requests.get(real_url, headers=headers, timeout=5)
+                
+        # n.news.naver.com은 보통 utf-8
+        if 'charset=euc-kr' in res.headers.get('content-type', '').lower():
+            res.encoding = 'euc-kr'
+        else:
+            res.encoding = 'utf-8'
         
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, 'html.parser')
@@ -676,9 +687,14 @@ if st.session_state.get('view_mode') == 'news':
                         
                     if st.button(label, key=f"btn_group_{i}_{st.session_state['news_page']}", use_container_width=True):
                         st.session_state['selected_article_url'] = main_row['url']
-                        with get_db_engine().connect() as conn:
-                            conn.execute(text("UPDATE news SET is_read = TRUE WHERE url = :u"), {'u': main_row['url']})
-                            conn.commit()
+                        def mark_read(u):
+                            try:
+                                with get_db_engine().connect() as conn:
+                                    conn.execute(text("UPDATE news SET is_read = TRUE WHERE url = :u"), {'u': u})
+                                    conn.commit()
+                            except: pass
+                        import threading
+                        threading.Thread(target=mark_read, args=(main_row['url'],)).start()
                         st.rerun()
             else:
                 for idx, row in df_news.iterrows():
@@ -686,9 +702,14 @@ if st.session_state.get('view_mode') == 'news':
                     label = f"{is_read_mark}{row['title']}\n({row['source']} | {row['published_date']})"
                     if st.button(label, key=f"btn_{idx}_{st.session_state['news_page']}", use_container_width=True):
                         st.session_state['selected_article_url'] = row['url']
-                        with get_db_engine().connect() as conn:
-                            conn.execute(text("UPDATE news SET is_read = TRUE WHERE url = :u"), {'u': row['url']})
-                            conn.commit()
+                        def mark_read(u):
+                            try:
+                                with get_db_engine().connect() as conn:
+                                    conn.execute(text("UPDATE news SET is_read = TRUE WHERE url = :u"), {'u': u})
+                                    conn.commit()
+                            except: pass
+                        import threading
+                        threading.Thread(target=mark_read, args=(row['url'],)).start()
                         st.rerun()
                     
             # 페이지 컨트롤 (이전/다음 버튼)
