@@ -627,6 +627,34 @@ if st.session_state.get('view_mode') == 'news':
         # OR로 묶고 전체는 AND로 연결
         where_clauses.append("(" + " OR ".join(tag_clauses) + ")")
         
+    # 필터 UI 및 조건 추가
+    st.markdown("### 🔍 기사 보기 옵션")
+    fcol1, fcol2 = st.columns(2)
+    with fcol1:
+        filter_unread = st.checkbox("🆕 읽지 않은 기사만 보기", value=False)
+    with fcol2:
+        date_opt = st.selectbox("날짜 필터", ["전체", "오늘", "어제", "최근 3일", "최근 7일"])
+        
+    if filter_unread:
+        where_clauses.append("(is_read IS NULL OR is_read = FALSE)")
+        
+    if date_opt != "전체":
+        today = datetime.now()
+        if date_opt == "오늘":
+            dates = [today.strftime("%Y.%m.%d.")]
+        elif date_opt == "어제":
+            dates = [(today - timedelta(days=1)).strftime("%Y.%m.%d.")]
+        elif date_opt == "최근 3일":
+            dates = [(today - timedelta(days=i)).strftime("%Y.%m.%d.") for i in range(3)]
+        elif date_opt == "최근 7일":
+            dates = [(today - timedelta(days=i)).strftime("%Y.%m.%d.") for i in range(7)]
+            
+        date_clauses = []
+        for i, d in enumerate(dates):
+            date_clauses.append(f"published_date LIKE :d_{i}")
+            query_params[f"d_{i}"] = f"{d}%"
+        where_clauses.append("(" + " OR ".join(date_clauses) + ")")
+
     # 페이징 처리
     if 'news_page' not in st.session_state:
         st.session_state['news_page'] = 1
