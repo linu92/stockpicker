@@ -608,10 +608,28 @@ if st.session_state.get('view_mode') == 'news':
         # OR로 묶고 전체는 AND로 연결
         where_clauses.append("(" + " OR ".join(tag_clauses) + ")")
         
-    if where_clauses:
-        base_query += " WHERE " + " AND ".join(where_clauses)
+    # 페이징 처리
+    if 'news_page' not in st.session_state:
+        st.session_state['news_page'] = 1
         
-    base_query += " ORDER BY published_date DESC, id DESC LIMIT 50"
+    page_size = 50
+    
+    # 전체 개수 구하기
+    count_query = "SELECT COUNT(*) FROM news"
+    if where_clauses:
+        count_query += " WHERE " + " AND ".join(where_clauses)
+    total_count_df = pd.read_sql_query(count_query, engine, params=query_params)
+    total_count = int(total_count_df.iloc[0, 0])
+    total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
+    
+    # 현재 페이지 교정
+    if st.session_state['news_page'] > total_pages:
+        st.session_state['news_page'] = total_pages
+    if st.session_state['news_page'] < 1:
+        st.session_state['news_page'] = 1
+        
+    offset = (st.session_state['news_page'] - 1) * page_size
+    base_query += f" ORDER BY published_date DESC, id DESC LIMIT {page_size} OFFSET {offset}"
     
     df_news = pd.read_sql_query(base_query, engine, params=query_params)
     
@@ -625,6 +643,21 @@ if st.session_state.get('view_mode') == 'news':
                 label = f"{row['title']}\n({row['source']} | {row['published_date']})"
                 if st.button(label, key=f"btn_{idx}", use_container_width=True):
                     st.session_state['selected_article_url'] = row['url']
+                    
+            # 페이지 컨트롤 (이전/다음 버튼)
+            if total_pages > 1:
+                st.markdown("---")
+                pcol1, pcol2, pcol3 = st.columns([1, 1, 1])
+                with pcol1:
+                    if st.button("◀ 이전 페이지", disabled=(st.session_state['news_page'] <= 1), use_container_width=True):
+                        st.session_state['news_page'] -= 1
+                        st.rerun()
+                with pcol2:
+                    st.markdown(f"<div style='text-align: center; padding-top: 10px;'>{st.session_state['news_page']} / {total_pages}</div>", unsafe_allow_html=True)
+                with pcol3:
+                    if st.button("다음 페이지 ▶", disabled=(st.session_state['news_page'] >= total_pages), use_container_width=True):
+                        st.session_state['news_page'] += 1
+                        st.rerun()
                     
     with col2:
         st.subheader("기사 원문 뷰어")
