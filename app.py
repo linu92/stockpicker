@@ -665,7 +665,7 @@ if st.session_state.get('view_mode') == 'news':
     count_query = "SELECT COUNT(*) FROM news"
     if where_clauses:
         count_query += " WHERE " + " AND ".join(where_clauses)
-    total_count_df = pd.read_sql_query(count_query, engine, params=query_params)
+    total_count_df = pd.read_sql_query(text(count_query), engine, params=query_params)
     total_count = int(total_count_df.iloc[0, 0])
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
     
@@ -678,7 +678,7 @@ if st.session_state.get('view_mode') == 'news':
     offset = (st.session_state['news_page'] - 1) * page_size
     base_query += f" ORDER BY published_date DESC, id DESC LIMIT {page_size} OFFSET {offset}"
     
-    df_news = pd.read_sql_query(base_query, engine, params=query_params)
+    df_news = pd.read_sql_query(text(base_query), engine, params=query_params)
     
     col1, col2 = st.columns([1, 2])
     with col1:
