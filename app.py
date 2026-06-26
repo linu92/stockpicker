@@ -892,12 +892,36 @@ else:
 
 df_krx = get_krx_listing()
 
+if 'target_stock' not in st.session_state:
+    st.session_state['target_stock'] = None
+if 'recent_stocks' not in st.session_state:
+    st.session_state['recent_stocks'] = []
+
 col1, col2, col3 = st.columns([1.5, 2, 1.5])
 with col1:
     if chart_source == "조건 검색 결과에서 선택":
-        selected_name = st.selectbox("검색된 종목 중 선택", res_df['종목명'].tolist())
+        options = res_df['종목명'].tolist()
+        label = "검색된 종목 중 선택"
     else:
-        selected_name = st.selectbox("전체 종목 검색 (이름을 입력하세요)", df_krx['Name'].tolist())
+        options = df_krx['Name'].tolist()
+        label = "전체 종목 검색 (이름을 입력하세요)"
+        
+    if st.session_state['target_stock'] in options:
+        idx = options.index(st.session_state['target_stock'])
+    else:
+        idx = 0
+        
+    selected_name = st.selectbox(label, options, index=idx)
+    
+    if selected_name != st.session_state['target_stock']:
+        st.session_state['target_stock'] = selected_name
+        
+    if selected_name:
+        if selected_name in st.session_state['recent_stocks']:
+            st.session_state['recent_stocks'].remove(selected_name)
+        st.session_state['recent_stocks'].insert(0, selected_name)
+        if len(st.session_state['recent_stocks']) > 5:
+            st.session_state['recent_stocks'] = st.session_state['recent_stocks'][:5]
 with col2:
     timeframe = st.radio("캔들 주기", ["일봉", "주봉", "월봉", "30분봉"], horizontal=True)
 with col3:
@@ -928,6 +952,20 @@ with col3:
 col4, col5, col6 = st.columns([1, 1.5, 1])
 with col4:
     chart_type = st.radio("차트 형태", ["캔들 차트", "선(Line) 차트"], horizontal=True)
+    
+    st.markdown("<div style='margin-top: 15px; margin-bottom: -15px;'><small style='color:#bbb;'>🕒 최근 본 종목</small></div>", unsafe_allow_html=True)
+    st.write("")
+    
+    recent_list = st.session_state.get('recent_stocks', [])
+    if recent_list:
+        for i in range(0, len(recent_list), 2):
+            chunk = recent_list[i:i+2]
+            cols = st.columns(2)
+            for j, stock in enumerate(chunk):
+                with cols[j]:
+                    if st.button(stock, key=f"recent_{stock}", use_container_width=True):
+                        st.session_state['target_stock'] = stock
+                        st.rerun()
 with col5:
     st.markdown("<div style='margin-bottom: -15px;'><small>이동평균선 표시</small></div>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
