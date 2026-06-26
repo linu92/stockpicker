@@ -118,8 +118,24 @@ with st.sidebar.form("search_form"):
     
     st.subheader("2단계: 추세 확인")
     use_step2 = st.checkbox("2단계 전체 활성화 (추세 확인)", value=True)
-    use_step2_1 = st.checkbox("이평선 정배열 (종가 > 20MA > 60MA)", value=True, disabled=not use_step2)
-    use_step2_2 = st.checkbox("20일선 우상향", value=True, disabled=not use_step2)
+    use_step2_1 = st.checkbox("이평선 정배열", value=True, disabled=not use_step2)
+    if use_step2_1 and use_step2:
+        ma_options = ["5", "10", "20", "60", "120", "200"]
+        s2c1, s2c2 = st.columns(2)
+        with s2c1:
+            step2_ma_short = st.selectbox("단기 이평선", ma_options, index=2, disabled=not use_step2)
+        with s2c2:
+            step2_ma_long = st.selectbox("장기 이평선", ma_options, index=3, disabled=not use_step2)
+        st.caption(f"조건: 종가 > {step2_ma_short}MA > {step2_ma_long}MA")
+    else:
+        step2_ma_short = "20"
+        step2_ma_long = "60"
+    use_step2_2 = st.checkbox("이평선 우상향", value=True, disabled=not use_step2)
+    if use_step2_2 and use_step2:
+        step2_rising_ma = st.selectbox("우상향 확인 이평선", ["5", "10", "20", "60", "120", "200"], index=2, disabled=not use_step2)
+        st.caption(f"조건: {step2_rising_ma}MA가 최근 5일간 연속 상승")
+    else:
+        step2_rising_ma = "20"
     
     st.subheader("3단계: 눌림 발생")
     use_step3 = st.checkbox("3단계 전체 활성화 (고점대비 하락, 거래량 감소, 이평선 근접)", value=True)
@@ -476,8 +492,12 @@ def fetch_minute_data(code, market, interval="30m", period="60d"):
         pass
     return None
 
-def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5):
-    if df is None or len(df) < 65:
+def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short=20, step2_ma_long=60, step2_rising_ma=20):
+    ma_short = int(step2_ma_short)
+    ma_long = int(step2_ma_long)
+    min_len = max(65, ma_long + 5)
+    
+    if df is None or len(df) < min_len:
         return False, None
         
     if exclude_new_listing and len(df) < 230:
@@ -485,7 +505,10 @@ def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_st
     
     df = df.copy()
     df['MA20'] = df['Close'].rolling(window=20).mean()
-    df['MA60'] = df['Close'].rolling(window=60).mean()
+    df['MA_short'] = df['Close'].rolling(window=ma_short).mean()
+    df['MA_long'] = df['Close'].rolling(window=ma_long).mean()
+    ma_rising = int(step2_rising_ma)
+    df['MA_rising'] = df['Close'].rolling(window=ma_rising).mean()
     df['Amount'] = df['Close'] * df['Volume']
     
     recent = df.iloc[-1]
@@ -499,11 +522,11 @@ def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_st
 
     if use_step2:
         if use_step2_1:
-            if not (recent['Close'] > recent['MA20'] and recent['MA20'] > recent['MA60']):
+            if not (recent['Close'] > recent['MA_short'] and recent['MA_short'] > recent['MA_long']):
                 return False, None
         
         if use_step2_2:
-            ma_target_last_5 = df['MA20'].tail(6).values
+            ma_target_last_5 = df['MA_rising'].tail(6).values
             is_rising = all(ma_target_last_5[i] <= ma_target_last_5[i+1] for i in range(5))
             if not is_rising:
                 return False, None
@@ -844,7 +867,7 @@ if submitted:
                 res_code, hist_df = future.result()
                 
                 if hist_df is not None:
-                    passed, analyzed_df = analyze_stock(res_code, hist_df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5)
+                    passed, analyzed_df = analyze_stock(res_code, hist_df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short, step2_ma_long, step2_rising_ma)
                     if passed:
                         row = filtered_df[filtered_df['Code'] == res_code].iloc[0]
                         avg_amt_20 = int(analyzed_df['Amount'].tail(20).mean() / 100000000)
