@@ -690,7 +690,10 @@ if st.session_state.get('view_mode') == 'news':
         st.markdown("---")
         
         if df_news.empty:
-            st.warning("아직 수집된 기사가 없습니다. 좌측 사이드바에서 기간을 설정한 후 '최신 뉴스 가져오기' 버튼을 눌러주세요.")
+            if filter_unread or date_opt != "전체" or tags:
+                st.info("선택한 필터 조건에 맞는 기사가 없습니다. (필터를 해제해 보세요)")
+            else:
+                st.warning("아직 수집된 기사가 없습니다. 좌측 사이드바에서 기간을 설정한 후 '최신 뉴스 가져오기' 버튼을 눌러주세요.")
         else:
             if group_similar:
                 import difflib
