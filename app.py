@@ -917,7 +917,13 @@ with col3:
         default_idx = len(period_options) - 1
         
     view_period = st.selectbox("조회 기간", period_options, index=default_idx)
+    
+    if view_period != st.session_state.get('prev_view_period') or timeframe != st.session_state.get('prev_timeframe') or selected_name != st.session_state.get('prev_stock'):
+        st.session_state['chart_offset'] = 0
+        
     st.session_state['prev_view_period'] = view_period
+    st.session_state['prev_timeframe'] = timeframe
+    st.session_state['prev_stock'] = selected_name
     
 col4, col5, col6 = st.columns([1, 1.5, 1])
 with col4:
@@ -1000,24 +1006,42 @@ if selected_name:
         df_plot['BB_down'] = df_plot['MA20'] - 2 * df_plot['std20']
         
     if view_period != "10년 (전체)":
-        end_date = df_plot.index.max()
-        if view_period == "5년":
-            start_dt = end_date - timedelta(days=365*5)
-        elif view_period == "1년":
-            start_dt = end_date - timedelta(days=365)
-        elif view_period == "6개월":
-            start_dt = end_date - timedelta(days=180)
-        elif view_period == "1달":
-            start_dt = end_date - timedelta(days=30)
-        elif view_period == "1주일":
-            start_dt = end_date - timedelta(days=7)
-        elif view_period == "1일":
+        nav_col1, nav_col2, nav_col3 = st.columns([8, 1, 1])
+        with nav_col2:
+            if st.button("◀ 이전", use_container_width=True):
+                st.session_state['chart_offset'] = st.session_state.get('chart_offset', 0) + 1
+                st.rerun()
+        with nav_col3:
+            if st.button("다음 ▶", disabled=(st.session_state.get('chart_offset', 0) <= 0), use_container_width=True):
+                st.session_state['chart_offset'] = max(0, st.session_state.get('chart_offset', 0) - 1)
+                st.rerun()
+
+        max_date_available = df_plot.index.max()
+        offset = st.session_state.get('chart_offset', 0)
+        
+        if view_period == "5년": td = timedelta(days=365*5)
+        elif view_period == "1년": td = timedelta(days=365)
+        elif view_period == "6개월": td = timedelta(days=180)
+        elif view_period == "1달": td = timedelta(days=30)
+        elif view_period == "1주일": td = timedelta(days=7)
+        elif view_period == "1일": td = timedelta(days=1)
+            
+        end_date = max_date_available - (td * offset)
+        
+        if view_period == "1일":
             if timeframe == "30분봉":
                 start_dt = end_date.replace(hour=9, minute=0, second=0, microsecond=0)
             else:
                 start_dt = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start_dt = end_date - td
             
-        df_plot = df_plot[df_plot.index >= start_dt]
+        if start_dt < df_plot.index.min():
+            start_dt = df_plot.index.min()
+        if end_date < start_dt:
+            end_date = start_dt
+            
+        df_plot = df_plot[(df_plot.index >= start_dt) & (df_plot.index <= end_date)]
     
     num_rows = 3 if show_rsi else 2
     row_widths = [0.15, 0.2, 0.6] if show_rsi else [0.2, 0.7]
