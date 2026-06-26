@@ -661,26 +661,32 @@ if st.session_state.get('view_mode') == 'news':
         
     page_size = 50
     
-    # 전체 개수 구하기
+    # 전체 개수 및 뉴스 목록 조회 (캐싱으로 rerun 시 DB 재조회 방지)
+    @st.cache_data(ttl=30, show_spinner=False)
+    def _query_news(query_str, count_str, params_tuple, page_size, offset):
+        params = dict(params_tuple)
+        eng = get_db_engine()
+        count_df = pd.read_sql_query(text(count_str), eng, params=params)
+        total = int(count_df.iloc[0, 0])
+        news_df = pd.read_sql_query(text(query_str), eng, params=params)
+        return total, news_df
+    
     count_query = "SELECT COUNT(*) FROM news"
     if where_clauses:
         count_query += " WHERE " + " AND ".join(where_clauses)
-    total_count_df = pd.read_sql_query(text(count_query), engine, params=query_params)
-    total_count = int(total_count_df.iloc[0, 0])
-    total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
     
-    # 현재 페이지 교정
-    if st.session_state['news_page'] > total_pages:
-        st.session_state['news_page'] = total_pages
-    if st.session_state['news_page'] < 1:
-        st.session_state['news_page'] = 1
-        
     offset = (st.session_state['news_page'] - 1) * page_size
     if where_clauses:
         base_query += " WHERE " + " AND ".join(where_clauses)
     base_query += f" ORDER BY published_date DESC, id DESC LIMIT {page_size} OFFSET {offset}"
     
-    df_news = pd.read_sql_query(text(base_query), engine, params=query_params)
+    total_count, df_news = _query_news(base_query, count_query, tuple(sorted(query_params.items())), page_size, offset)
+    total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
+    
+    if st.session_state['news_page'] > total_pages:
+        st.session_state['news_page'] = total_pages
+    if st.session_state['news_page'] < 1:
+        st.session_state['news_page'] = 1
     
     col1, col2 = st.columns([1, 2])
     with col1:
