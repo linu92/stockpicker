@@ -44,6 +44,13 @@ def init_db():
                     conn.execute(text("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT FALSE"))
                 except:
                     pass
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS search_presets (
+                        id SERIAL PRIMARY KEY,
+                        name TEXT UNIQUE NOT NULL,
+                        settings TEXT NOT NULL
+                    )
+                '''))
             else:
                 conn.execute(text('''
                     CREATE TABLE IF NOT EXISTS news (
@@ -60,6 +67,13 @@ def init_db():
                     conn.execute(text("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT FALSE"))
                 except:
                     pass
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS search_presets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT UNIQUE NOT NULL,
+                        settings TEXT NOT NULL
+                    )
+                '''))
             conn.commit()
     except Exception as e:
         import streamlit as st
@@ -107,58 +121,149 @@ if st.sidebar.button("최신 뉴스 가져오기"):
 st.sidebar.markdown("---")
 st.sidebar.header("🔍 검색 조건 설정")
 
+import json
+
+# 프리셋 불러오기
+def load_presets():
+    try:
+        eng = get_db_engine()
+        df = pd.read_sql_query(text("SELECT name, settings FROM search_presets ORDER BY name"), eng)
+        return {row['name']: json.loads(row['settings']) for _, row in df.iterrows()}
+    except:
+        return {}
+
+def save_preset(name, settings):
+    try:
+        eng = get_db_engine()
+        with eng.connect() as conn:
+            if is_postgres():
+                conn.execute(text(
+                    "INSERT INTO search_presets (name, settings) VALUES (:n, :s) "
+                    "ON CONFLICT (name) DO UPDATE SET settings = :s"
+                ), {'n': name, 's': json.dumps(settings, ensure_ascii=False)})
+            else:
+                conn.execute(text(
+                    "INSERT OR REPLACE INTO search_presets (name, settings) VALUES (:n, :s)"
+                ), {'n': name, 's': json.dumps(settings, ensure_ascii=False)})
+            conn.commit()
+        return True
+    except:
+        return False
+
+def delete_preset(name):
+    try:
+        eng = get_db_engine()
+        with eng.connect() as conn:
+            conn.execute(text("DELETE FROM search_presets WHERE name = :n"), {'n': name})
+            conn.commit()
+        return True
+    except:
+        return False
+
+presets = load_presets()
+preset_names = list(presets.keys())
+
+with st.sidebar.expander("💾 검색 설정 저장/불러오기"):
+    if preset_names:
+        load_col1, load_col2 = st.columns([3, 1])
+        with load_col1:
+            selected_preset = st.selectbox("저장된 설정", preset_names, label_visibility="collapsed")
+        with load_col2:
+            if st.button("📂 불러오기"):
+                st.session_state['loaded_preset'] = presets[selected_preset]
+                st.rerun()
+        if st.button("🗑️ 선택된 설정 삭제", use_container_width=True):
+            delete_preset(selected_preset)
+            st.rerun()
+    else:
+        st.caption("저장된 설정이 없습니다.")
+    st.markdown("---")
+    new_preset_name = st.text_input("새 설정 이름", placeholder="예: 눈림봉 전략")
+    if st.button("💾 현재 설정 저장", use_container_width=True, disabled=not new_preset_name):
+        st.session_state['save_preset_name'] = new_preset_name
+
+# 불러온 프리셋 값 적용
+lp = st.session_state.get('loaded_preset', {})
+
 with st.sidebar.form("search_form"):
     st.subheader("1단계: 기본 필터")
-    min_price, max_price = st.slider("주가 범위 (원)", 1000, 500000, (5000, 200000), step=1000)
-    min_amount_b = st.radio("최소 일평균 거래대금 (억원)", [1, 5, 10, 20], index=1, horizontal=True)
-    min_marcap_b = st.number_input("최소 시가총액 (억원)", min_value=100, value=1000, step=100)
-    exclude_preferred = st.checkbox("우선주 제외 (종목코드 끝자리 '0'만 포함)", value=True)
-    exclude_etf_spac = st.checkbox("ETF / ETN / 스팩(SPAC) 제외", value=True)
-    exclude_new_listing = st.checkbox("1년 미만 신규상장주 제외", value=True)
+    min_price, max_price = st.slider("주가 범위 (원)", 1000, 500000, (lp.get('min_price', 5000), lp.get('max_price', 200000)), step=1000)
+    _amt_opts = [1, 5, 10, 20]
+    min_amount_b = st.radio("최소 일평균 거래대금 (억원)", _amt_opts, index=_amt_opts.index(lp.get('min_amount_b', 5)), horizontal=True)
+    min_marcap_b = st.number_input("최소 시가총액 (억원)", min_value=100, value=lp.get('min_marcap_b', 1000), step=100)
+    exclude_preferred = st.checkbox("우선주 제외 (종목코드 끝자리 '0'만 포함)", value=lp.get('exclude_preferred', True))
+    exclude_etf_spac = st.checkbox("ETF / ETN / 스팩(SPAC) 제외", value=lp.get('exclude_etf_spac', True))
+    exclude_new_listing = st.checkbox("1년 미만 신규상장주 제외", value=lp.get('exclude_new_listing', True))
     
     st.subheader("2단계: 추세 확인")
-    use_step2 = st.checkbox("2단계 전체 활성화 (추세 확인)", value=True)
-    use_step2_1 = st.checkbox("이평선 정배열", value=True, disabled=not use_step2)
+    use_step2 = st.checkbox("2단계 전체 활성화 (추세 확인)", value=lp.get('use_step2', True))
+    use_step2_1 = st.checkbox("이평선 정배열", value=lp.get('use_step2_1', True), disabled=not use_step2)
     if use_step2_1 and use_step2:
         ma_options = ["5", "10", "20", "60", "120", "200"]
         s2c1, s2c2 = st.columns(2)
         with s2c1:
-            step2_ma_short = st.selectbox("단기 이평선", ma_options, index=2, disabled=not use_step2)
+            step2_ma_short = st.selectbox("단기 이평선", ma_options, index=ma_options.index(lp.get('step2_ma_short', '20')), disabled=not use_step2)
         with s2c2:
-            step2_ma_long = st.selectbox("장기 이평선", ma_options, index=3, disabled=not use_step2)
+            step2_ma_long = st.selectbox("장기 이평선", ma_options, index=ma_options.index(lp.get('step2_ma_long', '60')), disabled=not use_step2)
         st.caption(f"조건: 종가 > {step2_ma_short}MA > {step2_ma_long}MA")
     else:
         step2_ma_short = "20"
         step2_ma_long = "60"
-    use_step2_2 = st.checkbox("이평선 우상향", value=True, disabled=not use_step2)
+    use_step2_2 = st.checkbox("이평선 우상향", value=lp.get('use_step2_2', True), disabled=not use_step2)
     if use_step2_2 and use_step2:
-        step2_rising_ma = st.selectbox("우상향 확인 이평선", ["5", "10", "20", "60", "120", "200"], index=2, disabled=not use_step2)
+        _rising_opts = ["5", "10", "20", "60", "120", "200"]
+        step2_rising_ma = st.selectbox("우상향 확인 이평선", _rising_opts, index=_rising_opts.index(lp.get('step2_rising_ma', '20')), disabled=not use_step2)
         st.caption(f"조건: {step2_rising_ma}MA가 최근 5일간 연속 상승")
     else:
         step2_rising_ma = "20"
     
     st.subheader("3단계: 눌림 발생")
-    use_step3 = st.checkbox("3단계 전체 활성화 (고점대비 하락, 거래량 감소, 이평선 근접)", value=True)
+    use_step3 = st.checkbox("3단계 전체 활성화 (고점대비 하락, 거래량 감소, 이평선 근접)", value=lp.get('use_step3', True))
     c1, c2 = st.columns(2)
-    with c1: step3_decline_min = st.number_input("최소 하락률 (%)", value=5, step=1, disabled=not use_step3)
-    with c2: step3_decline_max = st.number_input("최대 하락률 (%)", value=15, step=1, disabled=not use_step3)
+    with c1: step3_decline_min = st.number_input("최소 하락률 (%)", value=lp.get('step3_decline_min', 5), step=1, disabled=not use_step3)
+    with c2: step3_decline_max = st.number_input("최대 하락률 (%)", value=lp.get('step3_decline_max', 15), step=1, disabled=not use_step3)
     
     st.subheader("4단계: 반등 신호")
-    use_step4 = st.checkbox("4단계 전체 활성화 (아래꼬리, 거래량 회복)", value=True)
-    step4_vol_type = st.radio("거래량 회복 기준", ["전일 대비", "최근 평균 대비"], horizontal=True, disabled=not use_step4)
+    use_step4 = st.checkbox("4단계 전체 활성화 (아래꼬리, 거래량 회복)", value=lp.get('use_step4', True))
+    _vol_types = ["전일 대비", "최근 평균 대비"]
+    step4_vol_type = st.radio("거래량 회복 기준", _vol_types, index=_vol_types.index(lp.get('step4_vol_type', '전일 대비')), horizontal=True, disabled=not use_step4)
     c3, c4 = st.columns(2)
     if step4_vol_type == "전일 대비":
-        with c3: step4_vol_ratio = st.number_input("전일 대비 최소 N배 이상", value=1.0, step=0.1, disabled=not use_step4)
+        with c3: step4_vol_ratio = st.number_input("전일 대비 최소 N배 이상", value=lp.get('step4_vol_ratio', 1.0), step=0.1, disabled=not use_step4)
         step4_vol_avg_days = 5 # unused
     else:
-        with c3: step4_vol_avg_days = st.number_input("최근 N일 평균", value=5, step=1, disabled=not use_step4)
-        with c4: step4_vol_ratio = st.number_input("평균 대비 최소 N배 이상", value=0.5, step=0.1, disabled=not use_step4)
+        with c3: step4_vol_avg_days = st.number_input("최근 N일 평균", value=lp.get('step4_vol_avg_days', 5), step=1, disabled=not use_step4)
+        with c4: step4_vol_ratio = st.number_input("평균 대비 최소 N배 이상", value=lp.get('step4_vol_ratio', 0.5), step=0.1, disabled=not use_step4)
     
     st.subheader("5단계: 제외 조건")
-    use_step5 = st.checkbox("5단계 활성화 (최근 단기 급등 종목 제외)", value=True)
+    use_step5 = st.checkbox("5단계 활성화 (최근 단기 급등 종목 제외)", value=lp.get('use_step5', True))
     st.markdown("**공시/실적 리스크는 네이버 금융 링크를 통해 직접 확인하세요.**")
     
     submitted = st.form_submit_button("🔍 조건 검색 실행", type="primary")
+
+# 현재 설정값을 저장하는 로직
+if st.session_state.get('save_preset_name'):
+    current_settings = {
+        'min_price': min_price, 'max_price': max_price,
+        'min_amount_b': min_amount_b, 'min_marcap_b': min_marcap_b,
+        'exclude_preferred': exclude_preferred, 'exclude_etf_spac': exclude_etf_spac,
+        'exclude_new_listing': exclude_new_listing,
+        'use_step2': use_step2, 'use_step2_1': use_step2_1,
+        'step2_ma_short': step2_ma_short, 'step2_ma_long': step2_ma_long,
+        'use_step2_2': use_step2_2, 'step2_rising_ma': step2_rising_ma,
+        'use_step3': use_step3, 'step3_decline_min': step3_decline_min, 'step3_decline_max': step3_decline_max,
+        'use_step4': use_step4, 'step4_vol_type': step4_vol_type,
+        'step4_vol_ratio': step4_vol_ratio, 'step4_vol_avg_days': step4_vol_avg_days,
+        'use_step5': use_step5,
+    }
+    preset_name = st.session_state['save_preset_name']
+    if save_preset(preset_name, current_settings):
+        st.sidebar.success(f"✅ '{preset_name}' 저장 완료!")
+    else:
+        st.sidebar.error("저장 실패!")
+    del st.session_state['save_preset_name']
+    if 'loaded_preset' in st.session_state:
+        del st.session_state['loaded_preset']
 
 # --- Functions ---
 import urllib.parse
