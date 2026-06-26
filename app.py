@@ -1152,6 +1152,7 @@ if selected_name:
         template='plotly_dark',
         showlegend=False
     )
+    fig.update_yaxes(fixedrange=True)
     
     rangebreaks_list = [dict(bounds=["sat", "mon"])]
     if timeframe == "30분봉":
