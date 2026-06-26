@@ -641,13 +641,13 @@ if st.session_state.get('view_mode') == 'news':
     if date_opt != "전체":
         today = (datetime.utcnow() + timedelta(hours=9))
         if date_opt == "오늘":
-            dates = [today.strftime("%Y.%m.%d.")]
+            dates = [today.strftime("%Y-%m-%d")]
         elif date_opt == "어제":
-            dates = [(today - timedelta(days=1)).strftime("%Y.%m.%d.")]
+            dates = [(today - timedelta(days=1)).strftime("%Y-%m-%d")]
         elif date_opt == "최근 3일":
-            dates = [(today - timedelta(days=i)).strftime("%Y.%m.%d.") for i in range(3)]
+            dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(3)]
         elif date_opt == "최근 7일":
-            dates = [(today - timedelta(days=i)).strftime("%Y.%m.%d.") for i in range(7)]
+            dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
             
         date_clauses = []
         for i, d in enumerate(dates):
