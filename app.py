@@ -95,8 +95,8 @@ st.sidebar.markdown("---")
 st.sidebar.header("📰 종목 뉴스 크롤링")
 news_keyword = st.sidebar.text_input("뉴스 검색 종목명", "")
 c1, c2 = st.sidebar.columns(2)
-with c1: news_start_date = st.date_input("시작일", datetime.now() - timedelta(days=7))
-with c2: news_end_date = st.date_input("종료일", datetime.now())
+with c1: news_start_date = st.date_input("시작일", (datetime.utcnow() + timedelta(hours=9)) - timedelta(days=7))
+with c2: news_end_date = st.date_input("종료일", (datetime.utcnow() + timedelta(hours=9)))
 
 if st.sidebar.button("최신 뉴스 가져오기"):
     st.session_state['news_keyword'] = news_keyword if news_keyword.strip() else ""
@@ -159,7 +159,7 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None, status_plac
         s_date = datetime.combine(start_date, datetime.min.time()) if not isinstance(start_date, datetime) else start_date
         e_date = datetime.combine(end_date, datetime.min.time()) if not isinstance(end_date, datetime) else end_date
     else:
-        e_date = datetime.now()
+        e_date = (datetime.utcnow() + timedelta(hours=9))
         s_date = e_date - timedelta(days=7)
     
     # 기존에 수집된 URL 목록 로드 (중복 탐색 방지용)
@@ -639,7 +639,7 @@ if st.session_state.get('view_mode') == 'news':
         where_clauses.append("(is_read IS NULL OR is_read = FALSE)")
         
     if date_opt != "전체":
-        today = datetime.now()
+        today = (datetime.utcnow() + timedelta(hours=9))
         if date_opt == "오늘":
             dates = [today.strftime("%Y.%m.%d.")]
         elif date_opt == "어제":
@@ -812,7 +812,7 @@ if submitted:
     
     if len(codes) > 0:
         # Fetch 10 years of data to support weekly/monthly/yearly charts
-        start_date = (datetime.now() - timedelta(days=3650)).strftime("%Y-%m-%d")
+        start_date = ((datetime.utcnow() + timedelta(hours=9)) - timedelta(days=3650)).strftime("%Y-%m-%d")
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -952,7 +952,7 @@ if selected_name:
             df_plot = chart_data_dict[sel_code].copy()
         else:
             with st.spinner("차트 데이터를 가져오는 중..."):
-                start_date = (datetime.now() - timedelta(days=3650)).strftime("%Y-%m-%d")
+                start_date = ((datetime.utcnow() + timedelta(hours=9)) - timedelta(days=3650)).strftime("%Y-%m-%d")
                 _, fetched_df = fetch_history(sel_code, start_date)
                 if fetched_df is not None and not fetched_df.empty:
                     df_plot = fetched_df.copy()
