@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Newspaper, Star, Plus } from "lucide-react";
+import { Search, Newspaper, Star, Plus, ChevronLeft, ChevronRight, BarChart2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 
 export default function Sidebar() {
-  const { viewMode, setViewMode, searchParams, setSearchParams, performSearch, isSearching, searchProgress, searchTotal, searchStatusMessage, newsKeyword, setNewsKeyword, fetchNews, triggerNewsCrawl, fetchWatchlist } = useStore();
+  const { isSidebarCollapsed, toggleSidebar, viewMode, setViewMode, searchParams, setSearchParams, performSearch, isSearching, searchProgress, searchTotal, searchStatusMessage, newsKeyword, setNewsKeyword, fetchNews, triggerNewsCrawl, fetchWatchlist } = useStore();
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
@@ -20,46 +20,65 @@ export default function Sidebar() {
   }, [isSearching]);
 
   return (
-    <aside className="w-80 bg-dark-panel border-r border-dark-border h-full flex flex-col p-4 shadow-xl shrink-0">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-          StockPicker V2
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Premium Screener
-          {process.env.NEXT_PUBLIC_BUILD_TIME && (
-            <span className="ml-2 px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-500">
-              Build: {process.env.NEXT_PUBLIC_BUILD_TIME}
-            </span>
-          )}
-        </p>
+    <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-80'} transition-all duration-300 bg-dark-panel border-r border-dark-border h-full flex flex-col p-4 shadow-xl shrink-0 relative`}>
+      {/* Toggle Button */}
+      <button 
+        onClick={toggleSidebar}
+        className="absolute -right-3 top-6 bg-blue-600 hover:bg-blue-500 text-white p-1 rounded-full shadow-lg z-50 border border-slate-700"
+      >
+        {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+      </button>
+
+      <div className="mb-8 overflow-hidden whitespace-nowrap">
+        {isSidebarCollapsed ? (
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent text-center">
+            SP
+          </h1>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              StockPicker V2
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Premium Screener
+              {process.env.NEXT_PUBLIC_BUILD_TIME && (
+                <span className="ml-2 px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-500">
+                  Build: {process.env.NEXT_PUBLIC_BUILD_TIME}
+                </span>
+              )}
+            </p>
+          </>
+        )}
       </div>
 
       <nav className="flex flex-col gap-2 mb-6">
         <button 
           onClick={() => setViewMode('search')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'search' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'}`}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'search' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'} ${isSidebarCollapsed ? 'justify-center' : ''}`}
+          title={isSidebarCollapsed ? "종목 검색기" : ""}
         >
           <Search size={18} />
-          종목 검색기
+          {!isSidebarCollapsed && <span>종목 검색기</span>}
         </button>
         <button 
           onClick={() => setViewMode('news')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'news' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'}`}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'news' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'} ${isSidebarCollapsed ? 'justify-center' : ''}`}
+          title={isSidebarCollapsed ? "기사보기 모드" : ""}
         >
           <Newspaper size={18} />
-          기사보기 모드
+          {!isSidebarCollapsed && <span>기사보기 모드</span>}
         </button>
         <button 
           onClick={() => setViewMode('watchlist')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'watchlist' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'}`}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'watchlist' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'} ${isSidebarCollapsed ? 'justify-center' : ''}`}
+          title={isSidebarCollapsed ? "관심 종목 모드" : ""}
         >
           <Star size={18} className={viewMode === 'watchlist' ? 'text-yellow-200' : 'text-yellow-400'} />
-          관심 종목 모드
+          {!isSidebarCollapsed && <span>관심 종목 모드</span>}
         </button>
       </nav>
 
-      {viewMode === 'search' && (
+      {!isSidebarCollapsed && viewMode === 'search' && (
         <>
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 pl-1">검색 조건 설정</h2>
