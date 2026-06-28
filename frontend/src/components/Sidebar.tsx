@@ -189,34 +189,34 @@ export default function Sidebar() {
               </div>
 
             </div>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-dark-border">
-            {isSearching ? (
-              <div className="w-full bg-slate-800 rounded-xl p-3 border border-slate-700 shadow-inner">
-                <div className="flex justify-between text-xs text-slate-400 mb-2">
-                  <span>{searchStatusMessage || '검색 및 분석 중...'}</span>
-                  {searchTotal > 0 && <span>{searchProgress} / {searchTotal}</span>}
+            
+            <div className="mt-6 pt-4 border-t border-dark-border">
+              {isSearching ? (
+                <div className="w-full bg-slate-800 rounded-xl p-3 border border-slate-700 shadow-inner">
+                  <div className="flex justify-between text-xs text-slate-400 mb-2">
+                    <span>{searchStatusMessage || '검색 및 분석 중...'}</span>
+                    {searchTotal > 0 && <span>{searchProgress} / {searchTotal}</span>}
+                  </div>
+                  <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className={`${searchTotal > 0 ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-blue-500/50 animate-pulse'} h-2.5 rounded-full transition-all duration-300 ease-out`}
+                      style={{ width: `${searchTotal > 0 ? (searchProgress / searchTotal) * 100 : 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between items-center mt-2 px-1">
+                    <div className="text-[10px] text-slate-500">잠시만 기다려주세요</div>
+                    <div className="text-[10px] font-medium text-blue-400">{elapsedTime}초 경과</div>
+                  </div>
                 </div>
-                <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
-                  <div 
-                    className={`${searchTotal > 0 ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-blue-500/50 animate-pulse'} h-2.5 rounded-full transition-all duration-300 ease-out`}
-                    style={{ width: `${searchTotal > 0 ? (searchProgress / searchTotal) * 100 : 100}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between items-center mt-2 px-1">
-                  <div className="text-[10px] text-slate-500">잠시만 기다려주세요</div>
-                  <div className="text-[10px] font-medium text-blue-400">{elapsedTime}초 경과</div>
-                </div>
-              </div>
-            ) : (
-              <button 
-                onClick={performSearch}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex justify-center items-center gap-2"
-              >
-                조건 검색 실행
-              </button>
-            )}
+              ) : (
+                <button 
+                  onClick={performSearch}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex justify-center items-center gap-2"
+                >
+                  조건 검색 실행
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -237,21 +237,21 @@ export default function Sidebar() {
                 />
               </div>
             </div>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-dark-border flex flex-col gap-2">
-            <button 
-              onClick={fetchNews}
-              className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all"
-            >
-              저장된 뉴스 보기
-            </button>
-            <button 
-              onClick={triggerNewsCrawl}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-all"
-            >
-              새로 크롤링 (백그라운드)
-            </button>
+            
+            <div className="mt-6 pt-4 border-t border-dark-border flex flex-col gap-2">
+              <button 
+                onClick={fetchNews}
+                className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all"
+              >
+                저장된 뉴스 보기
+              </button>
+              <button 
+                onClick={triggerNewsCrawl}
+                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-all"
+              >
+                새로 크롤링 (백그라운드)
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -265,15 +265,15 @@ export default function Sidebar() {
                 우측 메인 화면에서 새로운 종목을 찾아 추가하거나 관리할 수 있습니다.
               </p>
             </div>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-dark-border">
-            <button 
-              onClick={fetchWatchlist}
-              className="w-full py-3 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-lg transition-all"
-            >
-              새로고침
-            </button>
+            
+            <div className="mt-6 pt-4 border-t border-dark-border">
+              <button 
+                onClick={fetchWatchlist}
+                className="w-full py-3 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-lg transition-all"
+              >
+                새로고침
+              </button>
+            </div>
           </div>
         </>
       )}
