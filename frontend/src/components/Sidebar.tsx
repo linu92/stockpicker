@@ -25,7 +25,14 @@ export default function Sidebar() {
         <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
           StockPicker V2
         </h1>
-        <p className="text-xs text-slate-400 mt-1">Premium Screener</p>
+        <p className="text-xs text-slate-400 mt-1">
+          Premium Screener
+          {process.env.NEXT_PUBLIC_BUILD_TIME && (
+            <span className="ml-2 px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-500">
+              Build: {process.env.NEXT_PUBLIC_BUILD_TIME}
+            </span>
+          )}
+        </p>
       </div>
 
       <nav className="flex flex-col gap-2 mb-6">
