@@ -52,79 +52,23 @@ def get_krx_listing():
     if _krx_cache is not None and time.time() - _krx_cache_time < 3600:
         return _krx_cache
 
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    
-    def get_market_data(sosok):
-        result = []
-        for page in range(1, 60):
-            url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}"
-            res = requests.get(url, headers=headers)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            
-            table = soup.find('table', {'class': 'type_2'})
-            if not table: break
-            
-            rows = table.find_all('tr')
-            added = 0
-            for row in rows:
-                cols = row.find_all('td')
-                if len(cols) > 5:
-                    a_tag = cols[1].find('a')
-                    if not a_tag: continue
-                    name = a_tag.text.strip()
-                    code = a_tag['href'].split('code=')[-1]
-                    close = cols[2].text.replace(',', '').strip()
-                    
-                    changes_text = cols[3].text.replace(',', '').strip()
-                    try:
-                        changes = int(re.sub(r'[^0-9-]', '', changes_text))
-                    except:
-                        changes = 0
-                        
-                    ratio_text = cols[4].text.replace('%', '').replace('+', '').strip()
-                    try:
-                        changes_ratio = float(ratio_text)
-                        if changes_ratio < 0:
-                            changes = -abs(changes)
-                        elif changes_ratio > 0:
-                            changes = abs(changes)
-                    except:
-                        changes_ratio = 0.0
-                        
-                    marcap = cols[6].text.replace(',', '').strip()
-                    volume_text = cols[9].text.replace(',', '').strip()
-                    try:
-                        volume = int(volume_text)
-                    except:
-                        volume = 0
-                        
-                    try:
-                        marcap_val = int(marcap) * 100000000
-                    except:
-                        marcap_val = 0
-                        
-                    result.append({
-                        'Code': code,
-                        'Name': name,
-                        'Close': int(close) if close.isdigit() else 0,
-                        'Changes': changes,
-                        'ChagesRatio': changes_ratio,
-                        'Marcap': marcap_val,
-                        'Volume': volume,
-                        'Market': 'KOSPI' if sosok == '0' else 'KOSDAQ'
-                    })
-                    added += 1
-            if added == 0:
-                break
-        return result
-
-    kospi = get_market_data('0')
-    kosdaq = get_market_data('1')
-    
-    df = pd.DataFrame(kospi + kosdaq)
-    _krx_cache = df
-    _krx_cache_time = time.time()
-    return df
+    try:
+        df = fdr.StockListing('KRX')
+        # We need to map FDR columns to what the app expects: Code, Name, Close, Changes, ChagesRatio, Marcap, Volume, Market
+        # FDR returns: Code, ISU_CD, Name, Market, Dept, Close, ChangeCode, Changes, ChagesRatio, Open, High, Low, Volume, Amount, Marcap, Stocks, MarketId
+        
+        # Select and rename to match existing structure
+        df = df[['Code', 'Name', 'Close', 'Changes', 'ChagesRatio', 'Marcap', 'Volume', 'Market']]
+        
+        # Ensure Market is KOSPI or KOSDAQ for consistency
+        df['Market'] = df['Market'].replace({'KOSPI': 'KOSPI', 'KOSDAQ': 'KOSDAQ', 'KOSDAQ GLOBAL': 'KOSDAQ'})
+        
+        _krx_cache = df
+        _krx_cache_time = time.time()
+        return df
+    except Exception as e:
+        print(f"Error fetching KRX listing: {e}")
+        return pd.DataFrame()
 
 def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short=20, step2_ma_long=60, rising_ma10=False, rising_ma20=True, rising_ma50=False):
     ma_short = int(step2_ma_short)
