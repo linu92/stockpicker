@@ -34,6 +34,12 @@ Stores user's custom filter settings from the sidebar.
 - `name`: Name of the preset (Unique)
 - `settings`: JSON string containing form values (e.g., `min_price`, `use_step2`, etc.)
 
+### `watchlist` table
+Stores the user's favorite stocks for quick tracking.
+- `stock_code`: Primary Key (e.g., '005930')
+- `stock_name`: Stock Name (e.g., '삼성전자')
+- `added_at`: Timestamp of when the stock was favorited
+
 ## 4. Main Application Modes
 
 The application uses `st.session_state['view_mode']` to toggle between two primary views via sidebar buttons:
@@ -66,6 +72,12 @@ A dedicated dashboard for reading relevant news articles.
 - Embeds the full article HTML fetched directly from Naver via `fetch_article_html()`.
 - **Caching**: `@st.cache_data(ttl=3600)` prevents redundant network requests when clicking the same article repeatedly.
 - Strips out ads, scripts, and navigation elements from Naver's HTML to display a clean reader view.
+
+### 4.3 관심 종목 모드 (`view_mode == 'watchlist'`)
+A dedicated dashboard for tracking favorited stocks.
+- **Display**: Shows a clean table of all watchlisted stocks containing current price, fluctuation rate, and volume.
+- **Integration**: Fetches current prices dynamically via `pykrx`.
+- **Actions**: Users can easily jump to the Chart (`view_mode == 'search'`) or delete a stock from the watchlist.
 
 ## 5. Important Session States (`st.session_state`)
 - `view_mode`: Current active screen ('search' or 'news')

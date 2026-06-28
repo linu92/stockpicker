@@ -11,7 +11,28 @@ from bs4 import BeautifulSoup
 import time
 import re
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import create_engine, text
+
+# 백그라운드 프리패치 싱글턴 (모듈 레벨 — rerun 후에도 유지됨)
+_prefetch_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="prefetch")
+_prefetch_submitted: set = set()
+_prefetch_lock = threading.Lock()
+
+def _safe_fetch(url: str):
+    try:
+        fetch_article_html(url)
+    except Exception:
+        pass
+
+def prefetch_articles(urls: list, limit: int = 10):
+    for url in urls[:limit]:
+        with _prefetch_lock:
+            if url in _prefetch_submitted:
+                continue
+            _prefetch_submitted.add(url)
+        _prefetch_executor.submit(_safe_fetch, url)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'news.db') if '__file__' in dir() else 'news.db'
 
@@ -40,15 +61,20 @@ def init_db():
                         keyword TEXT
                     )
                 '''))
-                try:
-                    conn.execute(text("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT FALSE"))
-                except:
-                    pass
+                conn.execute(text("ALTER TABLE news ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE"))
+                conn.commit()
                 conn.execute(text('''
                     CREATE TABLE IF NOT EXISTS search_presets (
                         id SERIAL PRIMARY KEY,
                         name TEXT UNIQUE NOT NULL,
                         settings TEXT NOT NULL
+                    )
+                '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS watchlist (
+                        stock_code TEXT PRIMARY KEY,
+                        stock_name TEXT NOT NULL,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 '''))
             else:
@@ -74,10 +100,48 @@ def init_db():
                         settings TEXT NOT NULL
                     )
                 '''))
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS watchlist (
+                        stock_code TEXT PRIMARY KEY,
+                        stock_name TEXT NOT NULL,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                '''))
             conn.commit()
     except Exception as e:
         import streamlit as st
         st.error(f"데이터베이스 연결 실패! 상세 에러: {str(e)}")
+
+# --- Watchlist Helper Functions ---
+def get_watchlist():
+    try:
+        eng = get_db_engine()
+        df = pd.read_sql_query(text("SELECT stock_code, stock_name, added_at FROM watchlist ORDER BY added_at DESC"), eng)
+        return df
+    except:
+        return pd.DataFrame(columns=['stock_code', 'stock_name', 'added_at'])
+
+def is_watchlisted(code):
+    try:
+        eng = get_db_engine()
+        with eng.connect() as conn:
+            res = conn.execute(text("SELECT 1 FROM watchlist WHERE stock_code = :c"), {'c': code}).fetchone()
+            return res is not None
+    except:
+        return False
+
+def toggle_watchlist(code, name):
+    try:
+        eng = get_db_engine()
+        with eng.connect() as conn:
+            if is_watchlisted(code):
+                conn.execute(text("DELETE FROM watchlist WHERE stock_code = :c"), {'c': code})
+            else:
+                conn.execute(text("INSERT INTO watchlist (stock_code, stock_name) VALUES (:c, :n)"), {'c': code, 'n': name})
+            conn.commit()
+    except Exception as e:
+        import streamlit as st
+        st.error(f"관심종목 토글 실패: {str(e)}")
 
 init_db()
 
@@ -96,13 +160,17 @@ st.markdown("""
 
 # --- Sidebar ---
 st.sidebar.header("📰 메인 화면 모드")
-if st.session_state.get('view_mode', 'search') == 'search':
+if st.session_state.get('view_mode', 'search') != 'search':
+    if st.sidebar.button("🔍 검색기로 돌아가기", use_container_width=True):
+        st.session_state['view_mode'] = 'search'
+        st.rerun()
+if st.session_state.get('view_mode', 'search') != 'news':
     if st.sidebar.button("📰 기사보기 모드로 전환", use_container_width=True):
         st.session_state['view_mode'] = 'news'
         st.rerun()
-else:
-    if st.sidebar.button("🔍 검색기로 돌아가기", use_container_width=True):
-        st.session_state['view_mode'] = 'search'
+if st.session_state.get('view_mode', 'search') != 'watchlist':
+    if st.sidebar.button("⭐ 관심 종목 모드", use_container_width=True):
+        st.session_state['view_mode'] = 'watchlist'
         st.rerun()
 
 st.sidebar.markdown("---")
@@ -211,11 +279,18 @@ with st.sidebar.form("search_form"):
         step2_ma_long = "60"
     use_step2_2 = st.checkbox("이평선 우상향", value=lp.get('use_step2_2', True), disabled=not use_step2)
     if use_step2_2 and use_step2:
-        _rising_opts = ["5", "10", "20", "60", "120", "200"]
-        step2_rising_ma = st.selectbox("우상향 확인 이평선", _rising_opts, index=_rising_opts.index(lp.get('step2_rising_ma', '20')), disabled=not use_step2)
-        st.caption(f"조건: {step2_rising_ma}MA가 최근 5일간 연속 상승")
+        st.caption("우상향 확인할 이평선 선택 (최근 5일 연속 상승)")
+        _r1, _r2, _r3 = st.columns(3)
+        with _r1: rising_ma10 = st.checkbox("10일선", value=lp.get('rising_ma10', False), disabled=not use_step2)
+        with _r2: rising_ma20 = st.checkbox("20일선", value=lp.get('rising_ma20', True), disabled=not use_step2)
+        with _r3: rising_ma50 = st.checkbox("50일선", value=lp.get('rising_ma50', False), disabled=not use_step2)
+        _selected = [p for p, v in [("10", rising_ma10), ("20", rising_ma20), ("50", rising_ma50)] if v]
+        st.caption(f"선택됨: {', '.join(p+'MA' for p in _selected) if _selected else '없음 (조건 미적용)'}")
     else:
-        step2_rising_ma = "20"
+        rising_ma10 = False
+        rising_ma20 = True
+        rising_ma50 = False
+        _selected = ["20"]
     
     st.subheader("3단계: 눌림 발생")
     use_step3 = st.checkbox("3단계 전체 활성화 (고점대비 하락, 거래량 감소, 이평선 근접)", value=lp.get('use_step3', True))
@@ -250,7 +325,8 @@ if st.session_state.get('save_preset_name'):
         'exclude_new_listing': exclude_new_listing,
         'use_step2': use_step2, 'use_step2_1': use_step2_1,
         'step2_ma_short': step2_ma_short, 'step2_ma_long': step2_ma_long,
-        'use_step2_2': use_step2_2, 'step2_rising_ma': step2_rising_ma,
+        'use_step2_2': use_step2_2,
+        'rising_ma10': rising_ma10, 'rising_ma20': rising_ma20, 'rising_ma50': rising_ma50,
         'use_step3': use_step3, 'step3_decline_min': step3_decline_min, 'step3_decline_max': step3_decline_max,
         'use_step4': use_step4, 'step4_vol_type': step4_vol_type,
         'step4_vol_ratio': step4_vol_ratio, 'step4_vol_avg_days': step4_vol_avg_days,
@@ -580,6 +656,14 @@ def fetch_history(code, start_date):
     except Exception:
         return code, None
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_index(code):
+    try:
+        df = fdr.DataReader(code)
+        return df[['Close']].rename(columns={'Close': code})
+    except Exception:
+        return None
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_minute_data(code, market, interval="30m", period="60d"):
     import yfinance as yf
@@ -597,7 +681,7 @@ def fetch_minute_data(code, market, interval="30m", period="60d"):
         pass
     return None
 
-def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short=20, step2_ma_long=60, step2_rising_ma=20):
+def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short=20, step2_ma_long=60, rising_ma10=False, rising_ma20=True, rising_ma50=False):
     ma_short = int(step2_ma_short)
     ma_long = int(step2_ma_long)
     min_len = max(65, ma_long + 5)
@@ -612,8 +696,8 @@ def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_st
     df['MA20'] = df['Close'].rolling(window=20).mean()
     df['MA_short'] = df['Close'].rolling(window=ma_short).mean()
     df['MA_long'] = df['Close'].rolling(window=ma_long).mean()
-    ma_rising = int(step2_rising_ma)
-    df['MA_rising'] = df['Close'].rolling(window=ma_rising).mean()
+    df['MA10'] = df['Close'].rolling(window=10).mean()
+    df['MA50'] = df['Close'].rolling(window=50).mean()
     df['Amount'] = df['Close'] * df['Volume']
     
     recent = df.iloc[-1]
@@ -631,10 +715,13 @@ def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_st
                 return False, None
         
         if use_step2_2:
-            ma_target_last_5 = df['MA_rising'].tail(6).values
-            is_rising = all(ma_target_last_5[i] <= ma_target_last_5[i+1] for i in range(5))
-            if not is_rising:
-                return False, None
+            rising_checks = [(rising_ma10, 'MA10'), (rising_ma20, 'MA20'), (rising_ma50, 'MA50')]
+            for enabled, col in rising_checks:
+                if not enabled:
+                    continue
+                vals = df[col].tail(6).values
+                if not all(vals[i] <= vals[i+1] for i in range(5)):
+                    return False, None
             
     if use_step3:
         decline = (recent['Close'] - highest_20) / highest_20
@@ -823,6 +910,9 @@ if st.session_state.get('view_mode') == 'news':
         group_similar = st.checkbox("🔗 유사 기사 묶어보기 (비슷한 내용의 기사를 하나로 묶습니다)", value=True)
         st.markdown("---")
         
+        if not df_news.empty:
+            prefetch_articles(df_news['url'].tolist())
+
         if df_news.empty:
             if filter_unread or date_opt != "전체" or tags:
                 st.info("선택한 필터 조건에 맞는 기사가 없습니다. (필터를 해제해 보세요)")
@@ -852,7 +942,8 @@ if st.session_state.get('view_mode') == 'news':
                     else:
                         label = f"{is_read_mark}{main_row['title']}\n({main_row['source']} | {main_row['published_date']})"
                         
-                    if st.button(label, key=f"btn_group_{i}_{st.session_state['news_page']}", use_container_width=True):
+                    _btn_key = f"btn_{abs(hash(main_row['url'])) % 10**9}"
+                    if st.button(label, key=_btn_key, use_container_width=True):
                         st.session_state['selected_article_url'] = main_row['url']
                         def mark_read(u):
                             try:
@@ -867,7 +958,7 @@ if st.session_state.get('view_mode') == 'news':
                 for idx, row in df_news.iterrows():
                     is_read_mark = "✔️ " if row.get('is_read') else "🆕 "
                     label = f"{is_read_mark}{row['title']}\n({row['source']} | {row['published_date']})"
-                    if st.button(label, key=f"btn_{idx}_{st.session_state['news_page']}", use_container_width=True):
+                    if st.button(label, key=f"btn_{abs(hash(row['url'])) % 10**9}", use_container_width=True):
                         st.session_state['selected_article_url'] = row['url']
                         def mark_read(u):
                             try:
@@ -904,6 +995,52 @@ if st.session_state.get('view_mode') == 'news':
                 st.markdown(html_content, unsafe_allow_html=True)
         else:
             st.info("좌측 리스트에서 읽고 싶은 기사를 클릭해주세요.")
+
+elif st.session_state.get('view_mode') == 'watchlist':
+    st.subheader("⭐ 관심 종목 리스트")
+    df_wl = get_watchlist()
+    
+    if df_wl.empty:
+        st.info("등록된 관심 종목이 없습니다. 차트 화면(검색기)에서 관심 종목을 추가해보세요.")
+    else:
+        with st.spinner("현재가 정보를 불러오는 중..."):
+            krx_df = get_krx_listing()
+        df_merged = pd.merge(df_wl, krx_df[['Code', 'Close', 'Changes', 'ChagesRatio', 'Volume']], left_on='stock_code', right_on='Code', how='left')
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        cols = st.columns([2, 2, 2, 2, 2])
+        cols[0].markdown("**종목명(코드)**")
+        cols[1].markdown("**현재가**")
+        cols[2].markdown("**등락률**")
+        cols[3].markdown("**거래량**")
+        cols[4].markdown("**액션**")
+        st.markdown("---")
+        
+        for _, row in df_merged.iterrows():
+            c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
+            c1.markdown(f"**{row['stock_name']}** <small>({row['stock_code']})</small>", unsafe_allow_html=True)
+            if pd.isna(row['Close']):
+                c2.write("-")
+                c3.write("-")
+                c4.write("-")
+            else:
+                c2.write(f"{int(row['Close']):,}원")
+                color = "red" if row['ChagesRatio'] > 0 else "blue" if row['ChagesRatio'] < 0 else "black"
+                sign = "+" if row['ChagesRatio'] > 0 else ""
+                c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{sign}{row['ChagesRatio']:.2f}% ({sign}{int(row['Changes']):,}원)</span>", unsafe_allow_html=True)
+                c4.write(f"{int(row['Volume']):,}주")
+            with c5:
+                btn_c1, btn_c2 = st.columns(2)
+                with btn_c1:
+                    if st.button("차트", key=f"wl_chart_{row['stock_code']}", use_container_width=True):
+                        st.session_state['target_stock'] = row['stock_name']
+                        st.session_state['view_mode'] = 'search'
+                        st.rerun()
+                with btn_c2:
+                    if st.button("삭제", key=f"wl_del_{row['stock_code']}", use_container_width=True):
+                        toggle_watchlist(row['stock_code'], row['stock_name'])
+                        st.rerun()
+            st.markdown("<hr style='margin:0.5em 0;'>", unsafe_allow_html=True)
 
 else:
     if st.session_state.get('news_searched'):
@@ -972,7 +1109,7 @@ if submitted:
                 res_code, hist_df = future.result()
                 
                 if hist_df is not None:
-                    passed, analyzed_df = analyze_stock(res_code, hist_df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short, step2_ma_long, step2_rising_ma)
+                    passed, analyzed_df = analyze_stock(res_code, hist_df, min_amount_b, exclude_new_listing, use_step2, use_step2_1, use_step2_2, use_step3, step3_decline_min, step3_decline_max, use_step4, step4_vol_type, step4_vol_ratio, step4_vol_avg_days, use_step5, step2_ma_short, step2_ma_long, rising_ma10, rising_ma20, rising_ma50)
                     if passed:
                         row = filtered_df[filtered_df['Code'] == res_code].iloc[0]
                         avg_amt_20 = int(analyzed_df['Amount'].tail(20).mean() / 100000000)
@@ -1059,6 +1196,16 @@ with col1:
         st.session_state['recent_stocks'].insert(0, selected_name)
         if len(st.session_state['recent_stocks']) > 5:
             st.session_state['recent_stocks'] = st.session_state['recent_stocks'][:5]
+            
+        try:
+            target_code = df_krx[df_krx['Name'] == selected_name]['Code'].iloc[0]
+            wl_status = is_watchlisted(target_code)
+            wl_label = "🌟 관심종목 해제" if wl_status else "⭐ 관심종목 추가"
+            if st.button(wl_label, use_container_width=True):
+                toggle_watchlist(target_code, selected_name)
+                st.rerun()
+        except:
+            pass
 with col2:
     timeframe = st.radio("캔들 주기", ["일봉", "주봉", "월봉", "30분봉"], horizontal=True)
 with col3:
@@ -1120,6 +1267,8 @@ with col6:
     show_rsi = st.checkbox("RSI (14) 보조지표 표시", value=False)
     show_bb = st.checkbox("볼린저밴드 (20, 2) 표시", value=False)
     show_slider = st.checkbox("하단 X축 슬라이더 표시", value=False)
+    show_kospi = st.checkbox("KOSPI 지수 오버레이", value=False)
+    show_kosdaq = st.checkbox("KOSDAQ 지수 오버레이", value=False)
 
 if selected_name:
     sel_code = df_krx[df_krx['Name'] == selected_name].iloc[0]['Code']
@@ -1251,6 +1400,29 @@ if selected_name:
         fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['BB_up'], mode='lines', name='BB 상단', line=dict(color='rgba(200, 200, 255, 0.6)', width=1.5, dash='dot')), row=1, col=1)
         fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['BB_down'], mode='lines', name='BB 하단', fill='tonexty', fillcolor='rgba(200, 200, 255, 0.1)', line=dict(color='rgba(200, 200, 255, 0.6)', width=1.5, dash='dot')), row=1, col=1)
         
+    index_traces = []
+    if show_kospi:
+        df_ks = fetch_index('KS11')
+        if df_ks is not None:
+            df_ks = df_ks[df_ks.index.isin(df_plot.index)]
+            index_traces.append(('KOSPI', df_ks['KS11'], 'rgba(255, 200, 0, 0.85)'))
+    if show_kosdaq:
+        df_kq = fetch_index('KQ11')
+        if df_kq is not None:
+            df_kq = df_kq[df_kq.index.isin(df_plot.index)]
+            index_traces.append(('KOSDAQ', df_kq['KQ11'], 'rgba(0, 220, 180, 0.85)'))
+
+    for i_idx, (name, series, color) in enumerate(index_traces):
+        yaxis_name = f'y{10 + i_idx}'
+        fig.add_trace(go.Scatter(
+            x=series.index, y=series,
+            mode='lines', name=name,
+            line=dict(color=color, width=1.5, dash='dot'),
+            xaxis='x',
+            yaxis=yaxis_name,
+            opacity=0.8,
+        ))
+
     if show_vp:
         df_vp = df_plot.dropna(subset=['Close', 'Volume']).copy()
         if len(df_vp) > 1:
@@ -1316,6 +1488,20 @@ if selected_name:
             if i % 2 == 0:
                 add_shaded_rect(m.start_time, m.end_time)
     
+    index_yaxis_layout = {}
+    for i_idx, (name, _, _) in enumerate(index_traces):
+        axis_key = f'yaxis{10 + i_idx}'
+        index_yaxis_layout[axis_key] = dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            tickformat=",",
+            title=name,
+            title_font=dict(size=11),
+            showticklabels=True,
+            position=1.0 - i_idx * 0.06,
+        )
+
     fig.update_layout(
         title=f"{selected_name} ({sel_code}) 분석 차트",
         yaxis_title='주가 (원)',
@@ -1325,7 +1511,8 @@ if selected_name:
         xaxis_rangeslider_visible=show_slider,
         height=800 if not show_rsi else 1000,
         template='plotly_dark',
-        showlegend=False
+        showlegend=bool(index_traces),
+        **index_yaxis_layout,
     )
     fig.update_yaxes(fixedrange=True)
     
