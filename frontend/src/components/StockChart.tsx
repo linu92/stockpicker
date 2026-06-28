@@ -272,7 +272,10 @@ export default function StockChart() {
           <div className="flex items-center gap-3 w-1/4">
             {selectedStock ? (
               <>
-                <h3 className="text-lg font-bold text-white truncate">{currentStockInfo?.name || selectedStock} <span className="text-sm font-normal text-slate-400 ml-1">{selectedStock}</span></h3>
+                <h3 className="text-lg font-bold text-white truncate">
+                  {currentStockInfo?.name || allStocks.find(s => s.Code === selectedStock)?.Name || watchlist.find(w => w.stock_code === selectedStock)?.stock_name || selectedStock} 
+                  <span className="text-sm font-normal text-slate-400 ml-1">{selectedStock}</span>
+                </h3>
                 <button onClick={toggleWatchlist} className={`p-1.5 rounded-lg transition-colors ${inWatchlist ? 'text-yellow-400 bg-yellow-400/10' : 'text-slate-500 hover:text-yellow-400 hover:bg-slate-800'}`}>
                   <Star size={18} fill={inWatchlist ? "currentColor" : "none"} />
                 </button>
