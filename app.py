@@ -623,14 +623,43 @@ def get_krx_listing():
                     if not a_tag: continue
                     name = a_tag.text.strip()
                     code = a_tag['href'].split('code=')[-1]
-                    close = cols[2].text.replace(',', '')
-                    marcap = cols[6].text.replace(',', '')
+                    close = cols[2].text.replace(',', '').strip()
+                    
+                    changes_text = cols[3].text.replace(',', '').strip()
+                    try:
+                        changes = int(re.sub(r'[^0-9-]', '', changes_text))
+                        if '하락' in cols[3].text or '보합' in cols[3].text and '-' not in changes_text:
+                            # if it's down but doesn't have minus sign, or we can just rely on ratio
+                            pass
+                    except:
+                        changes = 0
+                        
+                    ratio_text = cols[4].text.replace('%', '').replace('+', '').strip()
+                    try:
+                        changes_ratio = float(ratio_text)
+                        # Sync sign of changes with changes_ratio
+                        if changes_ratio < 0:
+                            changes = -abs(changes)
+                        elif changes_ratio > 0:
+                            changes = abs(changes)
+                    except:
+                        changes_ratio = 0.0
+                        
+                    marcap = cols[6].text.replace(',', '').strip()
+                    volume_text = cols[9].text.replace(',', '').strip()
+                    try:
+                        volume = int(volume_text)
+                    except:
+                        volume = 0
                     
                     try:
                         result.append({
                             'Code': code,
                             'Name': name,
                             'Close': int(close),
+                            'Changes': changes,
+                            'ChagesRatio': changes_ratio,
+                            'Volume': volume,
                             'Marcap': int(marcap) * 100000000,
                             'Market': 'KOSPI' if sosok == 0 else 'KOSDAQ'
                         })
