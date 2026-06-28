@@ -17,7 +17,7 @@ export default function RootLayout({
   // Force dark mode for premium feel
   return (
     <html lang="ko" className="dark h-full antialiased">
-      <body className={`${inter.className} min-h-full flex bg-dark-bg text-gray-100 overflow-hidden`}>
+      <body className={`${inter.className} min-h-screen flex bg-dark-bg text-gray-100 overflow-y-auto`}>
         {/* We will inject a global Sidebar component here later, and children will be the main content area */}
         {children}
       </body>
