@@ -12,7 +12,7 @@ export default function StockChart() {
     chartData, kospiData, kosdaqData, isFetchingChart, selectedStock, searchResults,
     chartTimeframe, chartPeriod, chartOffset, chartType,
     showMA5, showMA10, showMA20, showMA60, showMA120, showMA200,
-    showVP, showRSI, showBB, showKospi, showKosdaq, showSlider,
+    showVP, showRSI, showBB, showKospi, showKosdaq,
     setChartConfig, selectStock, allStocks, fetchAllStocks,
     watchlist, addToWatchlist, removeFromWatchlist
   } = useStore();
