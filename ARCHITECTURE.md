@@ -39,6 +39,10 @@ Stores the user's favorite stocks for quick tracking.
 - `stock_code`: Primary Key (e.g., '005930')
 - `stock_name`: Stock Name (e.g., '삼성전자')
 - `added_at`: Timestamp of when the stock was favorited
+- `buy_price`: Target buy price set by the user
+- `sell_price`: Target sell price set by the user
+- `youtube_link`: URL to a relevant YouTube video or analysis
+- `added_price`: The closing price of the stock at the time it was favorited
 
 ## 4. Main Application Modes
 

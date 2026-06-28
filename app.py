@@ -107,6 +107,20 @@ def init_db():
                         added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 '''))
+            
+            # Watchlist 새 컬럼들 추가 (버전 업데이트 대비)
+            watchlist_columns = [
+                ("buy_price", "INTEGER"),
+                ("sell_price", "INTEGER"),
+                ("youtube_link", "TEXT"),
+                ("added_price", "INTEGER")
+            ]
+            for col_name, col_type in watchlist_columns:
+                try:
+                    conn.execute(text(f"ALTER TABLE watchlist ADD COLUMN {col_name} {col_type}"))
+                except:
+                    pass
+            
             conn.commit()
     except Exception as e:
         import streamlit as st
@@ -116,10 +130,10 @@ def init_db():
 def get_watchlist():
     try:
         eng = get_db_engine()
-        df = pd.read_sql_query(text("SELECT stock_code, stock_name, added_at FROM watchlist ORDER BY added_at DESC"), eng)
+        df = pd.read_sql_query(text("SELECT stock_code, stock_name, added_at, buy_price, sell_price, youtube_link, added_price FROM watchlist ORDER BY added_at DESC"), eng)
         return df
     except:
-        return pd.DataFrame(columns=['stock_code', 'stock_name', 'added_at'])
+        return pd.DataFrame(columns=['stock_code', 'stock_name', 'added_at', 'buy_price', 'sell_price', 'youtube_link', 'added_price'])
 
 def is_watchlisted(code):
     try:
@@ -130,18 +144,32 @@ def is_watchlisted(code):
     except:
         return False
 
-def toggle_watchlist(code, name):
+def toggle_watchlist(code, name, current_price=None):
     try:
         eng = get_db_engine()
         with eng.connect() as conn:
             if is_watchlisted(code):
                 conn.execute(text("DELETE FROM watchlist WHERE stock_code = :c"), {'c': code})
             else:
-                conn.execute(text("INSERT INTO watchlist (stock_code, stock_name) VALUES (:c, :n)"), {'c': code, 'n': name})
+                conn.execute(text("INSERT INTO watchlist (stock_code, stock_name, added_price) VALUES (:c, :n, :p)"), {'c': code, 'n': name, 'p': current_price})
             conn.commit()
     except Exception as e:
         import streamlit as st
         st.error(f"관심종목 토글 실패: {str(e)}")
+
+def update_watchlist_info(code, buy_price, sell_price, youtube_link):
+    try:
+        eng = get_db_engine()
+        with eng.connect() as conn:
+            conn.execute(text("""
+                UPDATE watchlist 
+                SET buy_price = :b, sell_price = :s, youtube_link = :y
+                WHERE stock_code = :c
+            """), {'c': code, 'b': buy_price, 's': sell_price, 'y': youtube_link})
+            conn.commit()
+    except Exception as e:
+        import streamlit as st
+        st.error(f"정보 업데이트 실패: {str(e)}")
 
 init_db()
 
@@ -1047,7 +1075,22 @@ elif st.session_state.get('view_mode') == 'watchlist':
         
         for _, row in df_merged.iterrows():
             c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
-            c1.markdown(f"**{row['stock_name']}** <small>({row['stock_code']})</small>", unsafe_allow_html=True)
+            
+            # YouTube Link Icon
+            yt_url = str(row.get('youtube_link')).strip() if pd.notna(row.get('youtube_link')) else ""
+            if yt_url == 'None': yt_url = ""
+            yt_icon = f" <a href='{yt_url}' target='_blank' style='text-decoration:none;'>▶️</a>" if yt_url else ""
+            
+            # Added info string
+            added_info = ""
+            if pd.notna(row.get('added_at')):
+                added_date = str(row['added_at'])[:10]
+                added_info += f"{added_date} 등록"
+            if pd.notna(row.get('added_price')) and row.get('added_price'):
+                added_info += f" ({int(row['added_price']):,}원)"
+            
+            c1.markdown(f"**{row['stock_name']}** <small>({row['stock_code']})</small>{yt_icon}<br><small style='color:gray;'>{added_info}</small>", unsafe_allow_html=True)
+            
             if pd.isna(row['Close']):
                 c2.write("-")
                 c3.write("-")
@@ -1058,6 +1101,7 @@ elif st.session_state.get('view_mode') == 'watchlist':
                 sign = "+" if row['ChagesRatio'] > 0 else ""
                 c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{sign}{row['ChagesRatio']:.2f}% ({sign}{int(row['Changes']):,}원)</span>", unsafe_allow_html=True)
                 c4.write(f"{int(row['Volume']):,}주")
+                
             with c5:
                 btn_c1, btn_c2 = st.columns(2)
                 with btn_c1:
@@ -1069,6 +1113,30 @@ elif st.session_state.get('view_mode') == 'watchlist':
                     if st.button("삭제", key=f"wl_del_{row['stock_code']}", use_container_width=True):
                         toggle_watchlist(row['stock_code'], row['stock_name'])
                         st.rerun()
+            
+            # Expander for editing prices and link
+            with st.expander("📝 매매 전략 및 메모"):
+                ec1, ec2, ec3, ec4 = st.columns([1.5, 1.5, 3, 1])
+                
+                # Fetch current DB values if available
+                current_buy = int(row.get('buy_price')) if pd.notna(row.get('buy_price')) else 0
+                current_sell = int(row.get('sell_price')) if pd.notna(row.get('sell_price')) else 0
+                current_yt = str(row.get('youtube_link')) if pd.notna(row.get('youtube_link')) else ""
+                if current_yt == 'None': current_yt = ""
+                
+                with ec1:
+                    new_buy = st.number_input("매수가", value=current_buy, step=100, key=f"buy_{row['stock_code']}")
+                with ec2:
+                    new_sell = st.number_input("목표/매도가", value=current_sell, step=100, key=f"sell_{row['stock_code']}")
+                with ec3:
+                    new_yt = st.text_input("유튜브 링크", value=current_yt, key=f"yt_{row['stock_code']}")
+                with ec4:
+                    st.write("") # spacing
+                    st.write("") # spacing
+                    if st.button("💾 저장", key=f"save_{row['stock_code']}", use_container_width=True):
+                        update_watchlist_info(row['stock_code'], new_buy, new_sell, new_yt)
+                        st.rerun()
+                        
             st.markdown("<hr style='margin:0.5em 0;'>", unsafe_allow_html=True)
 
 else:
@@ -1228,10 +1296,11 @@ with col1:
             
         try:
             target_code = df_krx[df_krx['Name'] == selected_name]['Code'].iloc[0]
+            current_price = df_krx[df_krx['Name'] == selected_name]['Close'].iloc[0]
             wl_status = is_watchlisted(target_code)
             wl_label = "🌟 관심종목 해제" if wl_status else "⭐ 관심종목 추가"
             if st.button(wl_label, use_container_width=True):
-                toggle_watchlist(target_code, selected_name)
+                toggle_watchlist(target_code, selected_name, int(current_price))
                 st.rerun()
         except:
             pass
@@ -1470,7 +1539,7 @@ if selected_name:
                 x=vp.values,
                 orientation='h',
                 name='매물대',
-                marker_color='rgba(150, 150, 150, 0.4)',
+                marker_color='rgba(150, 150, 150, 0.2)',
                 xaxis='x9',
                 yaxis='y1'
             ))
@@ -1569,7 +1638,7 @@ if selected_name:
                 side='top',
                 showticklabels=False,
                 showgrid=False,
-                range=[0, vp.values.max() * 4]
+                range=[0, vp.values.max() * 2.5]
             )
         )
     
