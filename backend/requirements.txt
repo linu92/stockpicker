@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+pydantic
 pandas
 finance-datareader
 beautifulsoup4
@@ -7,4 +8,4 @@ requests
 yfinance
 SQLAlchemy
 psycopg2-binary
-python-dotenv
+pykrx
