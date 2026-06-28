@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState, useRef } from "react";
 import { useStore } from "@/store/useStore";
+import { isChosungMatch } from "@/utils/hangul";
 import { Settings, Search, X, ChevronLeft, ChevronRight, Star } from "lucide-react";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -69,7 +70,7 @@ export default function StockChart() {
   // Filter stocks for search autocomplete
   const filteredStocks = searchQuery.trim() === "" 
     ? [] 
-    : allStocks.filter(s => s.Name.includes(searchQuery) || s.Code.includes(searchQuery)).slice(0, 50);
+    : allStocks.filter(s => isChosungMatch(searchQuery, s.Name) || s.Code.includes(searchQuery)).slice(0, 50);
 
   const handleStockSelect = (code: string, market: string) => {
     selectStock(code, market);
