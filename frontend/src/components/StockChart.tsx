@@ -389,7 +389,6 @@ export default function StockChart() {
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300"><input type="checkbox" checked={showVP} onChange={e => setChartConfig('showVP', e.target.checked)} className="accent-blue-500" /> 매물대 (Volume Profile)</label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300"><input type="checkbox" checked={showRSI} onChange={e => setChartConfig('showRSI', e.target.checked)} className="accent-blue-500" /> RSI (14)</label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300"><input type="checkbox" checked={showBB} onChange={e => setChartConfig('showBB', e.target.checked)} className="accent-blue-500" /> 볼린저밴드</label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300"><input type="checkbox" checked={showSlider} onChange={e => setChartConfig('showSlider', e.target.checked)} className="accent-blue-500" /> 하단 슬라이더</label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300"><input type="checkbox" checked={showKospi} onChange={e => setChartConfig('showKospi', e.target.checked)} className="accent-blue-500" /> 코스피 (KOSPI) 비교</label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300"><input type="checkbox" checked={showKosdaq} onChange={e => setChartConfig('showKosdaq', e.target.checked)} className="accent-blue-500" /> 코스닥 (KOSDAQ) 비교</label>
               </div>
@@ -413,13 +412,13 @@ export default function StockChart() {
             data={traces}
             layout={{
               autosize: true,
-              margin: { l: 50, r: 50, b: showSlider ? 50 : 30, t: 20 },
+              margin: { l: 50, r: 50, b: 30, t: 20 },
               paper_bgcolor: 'transparent',
               plot_bgcolor: 'transparent',
               font: { color: '#64748b', size: 11 },
               xaxis: {
                 type: 'category',
-                rangeslider: { visible: showSlider },
+                rangeslider: { visible: false },
                 gridcolor: '#1e293b',
                 zeroline: false
               },
