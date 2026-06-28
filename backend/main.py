@@ -256,12 +256,10 @@ class CrawlRequest(BaseModel):
     keyword: str
     
 @app.post("/api/news/crawl")
-def trigger_crawl(req: CrawlRequest, background_tasks: BackgroundTasks):
-    # This just kicks off the crawl
-    def run_crawl():
-        crawl_naver_news_search(req.keyword)
-    background_tasks.add_task(run_crawl)
-    return {"message": "Crawling started in background"}
+def trigger_crawl(req: CrawlRequest):
+    def generate():
+        yield from crawl_naver_news_search(req.keyword, stream=True)
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 @app.get("/api/news/content")
 def get_news_content(url: str):

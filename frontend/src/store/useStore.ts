@@ -80,10 +80,14 @@ interface AppState {
   setNewsKeyword: (kw: string) => void;
   newsList: any[];
   isFetchingNews: boolean;
-  fetchNews: () => Promise<void>;
-  triggerNewsCrawl: () => Promise<void>;
+  fetchNews: () => void;
+  triggerNewsCrawl: () => void;
   selectedNewsHtml: string | null;
-  fetchNewsContent: (url: string) => Promise<void>;
+  fetchNewsContent: (url: string) => void;
+  isCrawlingNews: boolean;
+  crawlNewsProgress: number;
+  crawlNewsTotal: number;
+  crawlStatusMessage: string;
 
   // Watchlist State
   watchlist: any[];
@@ -285,12 +289,63 @@ export const useStore = create<AppState>((set, get) => ({
       set({ isFetchingNews: false });
     }
   },
+  isCrawlingNews: false,
+  crawlNewsProgress: 0,
+  crawlNewsTotal: 0,
+  crawlStatusMessage: "",
+  
   triggerNewsCrawl: async () => {
+    set({ 
+      isCrawlingNews: true, 
+      crawlNewsProgress: 0, 
+      crawlNewsTotal: 0, 
+      crawlStatusMessage: "크롤링 준비 중..." 
+    });
+    
     try {
-      await axios.post(`${API_BASE}/api/news/crawl`, { keyword: get().newsKeyword });
-      alert("크롤링이 백그라운드에서 시작되었습니다. 잠시 후 새로고침 해보세요.");
+      const response = await fetch(`${API_BASE}/api/news/crawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: get().newsKeyword }),
+      });
+
+      if (!response.body) throw new Error("No response body");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        
+        let lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.type === "progress") {
+              set({ 
+                crawlNewsProgress: parsed.current, 
+                crawlNewsTotal: parsed.total, 
+                crawlStatusMessage: parsed.message || "크롤링 중..." 
+              });
+            }
+          } catch (e) {
+            console.error("Failed to parse JSON stream line:", line, e);
+          }
+        }
+      }
+      
+      // When done, fetch the latest news automatically
+      get().fetchNews();
     } catch (error) {
       console.error("Crawl trigger failed", error);
+      alert("크롤링 중 오류가 발생했습니다.");
+    } finally {
+      set({ isCrawlingNews: false, crawlStatusMessage: "" });
     }
   },
   selectedNewsHtml: null,

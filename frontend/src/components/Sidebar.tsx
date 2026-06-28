@@ -5,7 +5,12 @@ import { Search, Newspaper, Star, Plus, ChevronLeft, ChevronRight, BarChart2 } f
 import { useStore } from "@/store/useStore";
 
 export default function Sidebar() {
-  const { isSidebarCollapsed, toggleSidebar, viewMode, setViewMode, searchParams, setSearchParams, performSearch, isSearching, searchProgress, searchTotal, searchStatusMessage, newsKeyword, setNewsKeyword, fetchNews, triggerNewsCrawl, fetchWatchlist } = useStore();
+  const { 
+    isSidebarCollapsed, toggleSidebar, viewMode, setViewMode, 
+    searchParams, setSearchParams, performSearch, isSearching, searchProgress, searchTotal, searchStatusMessage, 
+    newsKeyword, setNewsKeyword, fetchNews, triggerNewsCrawl, isCrawlingNews, crawlNewsProgress, crawlNewsTotal, crawlStatusMessage,
+    fetchWatchlist 
+  } = useStore();
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
@@ -245,12 +250,31 @@ export default function Sidebar() {
               >
                 저장된 뉴스 보기
               </button>
-              <button 
-                onClick={triggerNewsCrawl}
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-all"
-              >
-                새로 크롤링 (백그라운드)
-              </button>
+              
+              {isCrawlingNews ? (
+                <div className="w-full bg-slate-800 rounded-xl p-3 border border-slate-700 shadow-inner">
+                  <div className="flex justify-between text-xs text-slate-400 mb-2">
+                    <span>{crawlStatusMessage || '뉴스 크롤링 중...'}</span>
+                    {crawlNewsTotal > 0 && <span>{crawlNewsProgress} / {crawlNewsTotal}</span>}
+                  </div>
+                  <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className={`${crawlNewsTotal > 0 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-purple-500/50 animate-pulse'} h-2.5 rounded-full transition-all duration-300 ease-out`}
+                      style={{ width: `${crawlNewsTotal > 0 ? (crawlNewsProgress / crawlNewsTotal) * 100 : 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between items-center mt-2 px-1">
+                    <div className="text-[10px] text-slate-500">잠시만 기다려주세요</div>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={triggerNewsCrawl}
+                  className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition-all"
+                >
+                  새로 크롤링
+                </button>
+              )}
             </div>
           </div>
         </>

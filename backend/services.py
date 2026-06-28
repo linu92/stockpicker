@@ -157,7 +157,7 @@ def analyze_stock(code, df, min_amount_b, exclude_new_listing, use_step2, use_st
                 
     return 5, df
 
-def crawl_naver_news_search(keyword, start_date=None, end_date=None):
+def crawl_naver_news_search(keyword, start_date=None, end_date=None, stream=False):
     """네이버 금융 뉴스에서 기사를 크롤링하여 DB에 저장 (issue_map 방식)"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -184,8 +184,14 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None):
     current_date = s_date
     delta = timedelta(days=1)
     
+    current_day_idx = 0
     while current_date <= e_date:
+        current_day_idx += 1
         date_param = current_date.strftime('%Y%m%d')
+        
+        if stream:
+            yield json.dumps({"type": "progress", "current": current_day_idx, "total": total_days, "message": f"{date_param} 뉴스 수집 중..."}) + "\n"
+            
         page = 1
         empty_count = 0
         
@@ -280,9 +286,12 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None):
                     
                 if total_items < 10:
                     break
-                
+                    
+                if stream:
+                    yield json.dumps({"type": "progress", "current": current_day_idx, "total": total_days, "message": f"{date_param} - {page}페이지 탐색 중..."}) + "\n"
+                    
                 page += 1
-                time.sleep(0.3)
+                time.sleep(0.5)
                 
             except Exception as e:
                 break
@@ -316,6 +325,9 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None):
             except Exception:
                 pass
         conn.commit()
+    
+    if stream:
+        yield json.dumps({"type": "progress", "current": total_days, "total": total_days, "message": f"크롤링 완료! {saved_count}건 저장됨"}) + "\n"
     
     return all_news, saved_count
 
