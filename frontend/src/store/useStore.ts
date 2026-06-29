@@ -402,19 +402,34 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   addToWatchlist: async (item) => {
+    // Optimistic update
+    set((state) => ({
+      watchlist: [{
+        stock_code: item.stock_code,
+        stock_name: item.stock_name,
+        added_at: new Date().toISOString(),
+        added_price: item.added_price
+      }, ...state.watchlist]
+    }));
     try {
       await axios.post(`${API_BASE}/api/watchlist`, item);
       get().fetchWatchlist();
     } catch (error) {
       console.error("Add to watchlist failed", error);
+      get().fetchWatchlist(); // Rollback
     }
   },
   removeFromWatchlist: async (code) => {
+    // Optimistic update
+    set((state) => ({
+      watchlist: state.watchlist.filter(w => w.stock_code !== code)
+    }));
     try {
       await axios.delete(`${API_BASE}/api/watchlist/${code}`);
       get().fetchWatchlist();
     } catch (error) {
       console.error(error);
+      get().fetchWatchlist(); // Rollback
     }
   },
   
