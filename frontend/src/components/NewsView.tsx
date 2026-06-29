@@ -77,9 +77,9 @@ export default function NewsView() {
 
                       {/* Expandable Content Area */}
                       {isExpanded && (
-                        <div className="border-t border-slate-700/50 bg-white text-slate-900 rounded-b-lg mx-4 mb-4 overflow-hidden shadow-inner">
+                        <div className="border-t border-slate-700/50 bg-slate-900 rounded-b-lg mx-4 mb-4 overflow-hidden shadow-inner">
                           {selectedNewsHtml ? (
-                            <div className="p-6 md:p-8 news-content-wrapper min-h-[200px]" dangerouslySetInnerHTML={{ __html: selectedNewsHtml }} />
+                            <div className="news-content-wrapper min-h-[200px]" dangerouslySetInnerHTML={{ __html: selectedNewsHtml }} />
                           ) : (
                             <div className="p-8 flex items-center justify-center text-slate-500 min-h-[200px]">
                               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
