@@ -30,9 +30,6 @@ interface SearchParams {
 }
 
 interface AppState {
-  isSidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-  
   viewMode: 'search' | 'news' | 'watchlist';
   setViewMode: (mode: 'search' | 'news' | 'watchlist') => void;
   
@@ -102,9 +99,6 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  isSidebarCollapsed: false,
-  toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
-
   viewMode: 'search',
   setViewMode: (mode) => set({ viewMode: mode }),
   
