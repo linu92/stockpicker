@@ -1,15 +1,33 @@
 "use client";
 
 import { useStore } from "@/store/useStore";
-import { useEffect } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export default function NewsView() {
-  const { newsList, isFetchingNews, fetchNews, fetchNewsContent, selectedNewsHtml, setSelectedNewsHtml } = useStore();
+  const { 
+    newsList, 
+    isFetchingNews, 
+    fetchNews, 
+    fetchNewsContent, 
+    selectedNewsHtml, 
+    selectedNewsUrl 
+  } = useStore();
+
+  const expandedRef = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
     fetchNews();
   }, []);
+
+  // When an article opens, scroll it into view slightly
+  useEffect(() => {
+    if (selectedNewsUrl && expandedRef.current) {
+      setTimeout(() => {
+        expandedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+  }, [selectedNewsUrl]);
 
   return (
     <div className="flex w-full h-full relative overflow-hidden rounded-2xl">
@@ -19,65 +37,63 @@ export default function NewsView() {
           <h3 className="font-bold text-white">수집된 기사 목록</h3>
           <span className="text-xs text-slate-400">총 {newsList.length}건</span>
         </div>
+        
         {isFetchingNews ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900">
             {newsList.length === 0 ? (
-              <p className="p-4 text-slate-500 text-center">수집된 기사가 없습니다.</p>
+              <p className="p-8 text-slate-500 text-center">수집된 기사가 없습니다.</p>
             ) : (
-              <ul className="divide-y divide-dark-border">
-                {newsList.map((news) => (
-                  <li 
-                    key={news.id} 
-                    onClick={() => fetchNewsContent(news.url)}
-                    className={`p-5 cursor-pointer hover:bg-slate-800 transition-colors ${news.is_read ? 'opacity-60' : 'font-bold'}`}
-                  >
-                    <div className="text-sm text-blue-400 mb-2">{news.source} | {news.published_date}</div>
-                    <div className="text-white text-lg line-clamp-2">{news.title}</div>
-                  </li>
-                ))}
+              <ul className="divide-y divide-dark-border/50">
+                {newsList.map((news) => {
+                  const isExpanded = selectedNewsUrl === news.url;
+                  
+                  return (
+                    <li 
+                      key={news.id} 
+                      ref={isExpanded ? expandedRef : null}
+                      className={`transition-colors ${
+                        isExpanded ? 'bg-slate-800/80 border-l-4 border-blue-500' : 'hover:bg-slate-800/40 border-l-4 border-transparent'
+                      }`}
+                    >
+                      {/* Header (Clickable) */}
+                      <div 
+                        onClick={() => fetchNewsContent(news.url)}
+                        className={`p-5 cursor-pointer flex justify-between items-start gap-4 ${news.is_read && !isExpanded ? 'opacity-60' : ''}`}
+                      >
+                        <div className="flex-1">
+                          <div className="text-xs text-blue-400 mb-2 font-medium">{news.source} <span className="text-slate-500 mx-1">|</span> <span className="text-slate-400">{news.published_date}</span></div>
+                          <div className={`text-lg transition-colors ${isExpanded ? 'text-blue-300 font-bold' : 'text-slate-200 font-medium'}`}>
+                            {news.title}
+                          </div>
+                        </div>
+                        <div className="mt-1 text-slate-500">
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </div>
+                      </div>
+
+                      {/* Expandable Content Area */}
+                      {isExpanded && (
+                        <div className="border-t border-slate-700/50 bg-white text-slate-900 rounded-b-lg mx-4 mb-4 overflow-hidden shadow-inner">
+                          {selectedNewsHtml ? (
+                            <div className="p-6 md:p-8 news-content-wrapper min-h-[200px]" dangerouslySetInnerHTML={{ __html: selectedNewsHtml }} />
+                          ) : (
+                            <div className="p-8 flex items-center justify-center text-slate-500 min-h-[200px]">
+                              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
         )}
-      </div>
-
-      {/* Overlay Backdrop */}
-      <div 
-        className={`absolute inset-0 bg-black/60 backdrop-blur-sm z-10 transition-opacity duration-300 ${selectedNewsHtml ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
-        onClick={() => setSelectedNewsHtml(null)}
-      ></div>
-
-      {/* Sliding Article Drawer (Right side) */}
-      <div 
-        className={`absolute top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 bg-white border-l border-slate-700 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out z-20 ${
-          selectedNewsHtml ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        {/* Drawer Header */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
-          <h3 className="font-bold text-slate-800">기사 본문</h3>
-          <button 
-            onClick={() => setSelectedNewsHtml(null)}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-white text-slate-900">
-          {selectedNewsHtml ? (
-            <div className="news-content-wrapper" dangerouslySetInnerHTML={{ __html: selectedNewsHtml }} />
-          ) : (
-            <div className="flex items-center justify-center h-full text-slate-500">
-              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

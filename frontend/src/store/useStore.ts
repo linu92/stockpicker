@@ -80,7 +80,9 @@ interface AppState {
   fetchNews: () => void;
   triggerNewsCrawl: () => void;
   selectedNewsHtml: string | null;
+  selectedNewsUrl: string | null;
   setSelectedNewsHtml: (html: string | null) => void;
+  setSelectedNewsUrl: (url: string | null) => void;
   fetchNewsContent: (url: string) => void;
   isCrawlingNews: boolean;
   crawlNewsProgress: number;
@@ -344,8 +346,17 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   selectedNewsHtml: null,
+  selectedNewsUrl: null,
   fetchNewsContent: async (url) => {
-    set({ selectedNewsHtml: "<div class='text-center p-8'><div class='w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto'></div><p class='mt-4'>기사 본문을 불러오는 중...</p></div>" });
+    // If clicking the currently open one, close it
+    if (get().selectedNewsUrl === url) {
+      set({ selectedNewsUrl: null, selectedNewsHtml: null });
+      return;
+    }
+    set({ 
+      selectedNewsUrl: url,
+      selectedNewsHtml: "<div class='text-center p-8'><div class='w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto'></div><p class='mt-4 text-slate-500 text-sm'>기사 본문을 불러오는 중...</p></div>" 
+    });
     try {
       const res = await axios.get(`${API_BASE}/api/news/content?url=${encodeURIComponent(url)}`);
       set({ selectedNewsHtml: res.data.html });
@@ -357,6 +368,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   
   setSelectedNewsHtml: (html) => set({ selectedNewsHtml: html }),
+  setSelectedNewsUrl: (url) => set({ selectedNewsUrl: url }),
 
   // Watchlist
   watchlist: [],
