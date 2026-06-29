@@ -82,13 +82,14 @@ export default function StockChart() {
   const currentStockInfo = recentStocks.find(r => r.code === selectedStock);
 
   const toggleWatchlist = () => {
-    if (!selectedStock || !currentStockInfo) return;
+    if (!selectedStock) return;
     if (inWatchlist) {
       removeFromWatchlist(selectedStock);
     } else {
+      const stockName = currentStockInfo?.name || allStocks.find(s => s.Code === selectedStock)?.Name || searchResults.find(s => s.종목코드 === selectedStock)?.종목명 || selectedStock;
       addToWatchlist({
         stock_code: selectedStock,
-        stock_name: currentStockInfo.name,
+        stock_name: stockName,
         added_price: chartData.length > 0 ? chartData[chartData.length - 1].Close : 0
       });
     }
