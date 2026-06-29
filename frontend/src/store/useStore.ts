@@ -80,6 +80,7 @@ interface AppState {
   fetchNews: () => void;
   triggerNewsCrawl: () => void;
   selectedNewsHtml: string | null;
+  setSelectedNewsHtml: (html: string | null) => void;
   fetchNewsContent: (url: string) => void;
   isCrawlingNews: boolean;
   crawlNewsProgress: number;
@@ -354,6 +355,8 @@ export const useStore = create<AppState>((set, get) => ({
       set({ selectedNewsHtml: "<div>기사 본문 로딩 실패</div>" });
     }
   },
+  
+  setSelectedNewsHtml: (html) => set({ selectedNewsHtml: html }),
 
   // Watchlist
   watchlist: [],
