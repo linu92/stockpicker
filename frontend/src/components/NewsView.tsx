@@ -1,8 +1,8 @@
 "use client";
 
 import { useStore } from "@/store/useStore";
-import { useEffect, useRef } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useRef, useState, KeyboardEvent } from "react";
+import { ChevronDown, ChevronUp, X, Filter } from "lucide-react";
 
 export default function NewsView() {
   const { 
@@ -15,6 +15,11 @@ export default function NewsView() {
   } = useStore();
 
   const expandedRef = useRef<HTMLLIElement>(null);
+  
+  // Local filtering state
+  const [hideRead, setHideRead] = useState(false);
+  const [filterInput, setFilterInput] = useState("");
+  const [filterTags, setFilterTags] = useState<string[]>([]);
 
   useEffect(() => {
     fetchNews();
@@ -29,13 +34,73 @@ export default function NewsView() {
     }
   }, [selectedNewsUrl]);
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const newTag = filterInput.trim();
+      if (newTag && !filterTags.includes(newTag)) {
+        setFilterTags([...filterTags, newTag]);
+      }
+      setFilterInput("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setFilterTags(filterTags.filter(tag => tag !== tagToRemove));
+  };
+
+  const filteredNewsList = newsList.filter(news => {
+    if (hideRead && news.is_read) return false;
+    if (filterTags.length > 0) {
+      const textToSearch = `${news.title} ${news.source} ${news.summary || ''}`.toLowerCase();
+      // Match if ANY of the tags are in the text
+      const hasMatch = filterTags.some(tag => textToSearch.includes(tag.toLowerCase()));
+      if (!hasMatch) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="flex w-full h-full relative overflow-hidden rounded-2xl">
       {/* News List Container */}
       <div className="w-full h-full bg-dark-panel border border-dark-border shadow-xl flex flex-col overflow-hidden">
-        <div className="p-4 bg-slate-800/50 border-b border-dark-border flex justify-between items-center">
-          <h3 className="font-bold text-white">수집된 기사 목록</h3>
-          <span className="text-xs text-slate-400">총 {newsList.length}건</span>
+        <div className="p-4 bg-slate-800/50 border-b border-dark-border flex flex-col gap-3">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-white">수집된 기사 목록</h3>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={hideRead}
+                  onChange={(e) => setHideRead(e.target.checked)}
+                  className="w-4 h-4 accent-blue-500 cursor-pointer"
+                />
+                읽은 기사 숨기기
+              </label>
+              <span className="text-xs text-slate-400">총 {filteredNewsList.length}건</span>
+            </div>
+          </div>
+          
+          {/* Tag Filter Input */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-2 rounded-lg focus-within:border-blue-500 transition-colors">
+            <Filter size={16} className="text-slate-500 ml-2" />
+            <div className="flex flex-wrap gap-2 items-center flex-1">
+              {filterTags.map(tag => (
+                <span key={tag} className="flex items-center gap-1 bg-blue-900/50 text-blue-300 text-xs px-2 py-1 rounded-md border border-blue-800/50">
+                  {tag}
+                  <button onClick={() => removeTag(tag)} className="hover:text-white"><X size={12} /></button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={filterInput}
+                onChange={e => setFilterInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={filterTags.length === 0 ? "검색 필터 키워드 입력 후 Enter..." : "키워드 추가..."}
+                className="bg-transparent border-none outline-none text-sm text-white min-w-[150px] flex-1 p-1"
+              />
+            </div>
+          </div>
         </div>
         
         {isFetchingNews ? (
@@ -44,11 +109,11 @@ export default function NewsView() {
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900">
-            {newsList.length === 0 ? (
-              <p className="p-8 text-slate-500 text-center">수집된 기사가 없습니다.</p>
+            {filteredNewsList.length === 0 ? (
+              <p className="p-8 text-slate-500 text-center">조건에 맞는 기사가 없습니다.</p>
             ) : (
               <ul className="divide-y divide-dark-border/50">
-                {newsList.map((news) => {
+                {filteredNewsList.map((news) => {
                   const isExpanded = selectedNewsUrl === news.url;
                   
                   return (
