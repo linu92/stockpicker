@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "D:\my_project\StockPicker\backend\main.py", line 314, in add_watchlist
+    from .database import is_postgres
+ImportError: attempted relative import with no known parent package
+

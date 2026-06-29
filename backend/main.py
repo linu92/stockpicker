@@ -2,7 +2,7 @@ from fastapi import FastAPI, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-from database import get_db_engine, init_db
+from database import get_db_engine, init_db, is_postgres
 from services import get_krx_listing, fetch_history, analyze_stock, crawl_naver_news_search, fetch_article_html, fetch_minute_data, fetch_index
 from models import SearchRequest
 from datetime import datetime, timedelta
@@ -311,7 +311,6 @@ def add_watchlist(item: WatchlistItem):
     engine = get_db_engine()
     try:
         with engine.connect() as conn:
-            from .database import is_postgres
             if is_postgres():
                 conn.execute(text('''
                     INSERT INTO watchlist (stock_code, stock_name, buy_price, sell_price, youtube_link, added_price) 
@@ -341,6 +340,9 @@ def add_watchlist(item: WatchlistItem):
             conn.commit()
         return {"status": "success"}
     except Exception as e:
+        import traceback
+        with open("error.log", "a") as f:
+            f.write(traceback.format_exc() + "\n")
         return {"status": "error", "message": str(e)}
 
 @app.delete("/api/watchlist/{code}")
