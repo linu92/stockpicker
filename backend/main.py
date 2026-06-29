@@ -247,7 +247,7 @@ def get_chart_data(
 def get_news(keyword: str = "전체"):
     engine = get_db_engine()
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT id, title, url, source, published_date, summary, is_read FROM news WHERE keyword = :kw ORDER BY published_date DESC, id DESC LIMIT 100"), {"kw": keyword})
+        result = conn.execute(text("SELECT id, title, url, source, published_date, summary, is_read FROM news WHERE keyword = :kw ORDER BY published_date DESC, id ASC LIMIT 200"), {"kw": keyword})
         data = [dict(row._mapping) for row in result]
     return {"data": data}
 
