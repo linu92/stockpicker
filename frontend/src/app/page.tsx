@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "@/components/Sidebar";
+import BottomTaskbar from "@/components/BottomTaskbar";
 import StockChart from "@/components/StockChart";
 import NewsView from "@/components/NewsView";
 import WatchlistView from "@/components/WatchlistView";
@@ -11,9 +12,10 @@ export default function Home() {
   const { searchResults, isSearching, viewMode, selectStock, selectedStock, addToWatchlist, watchlist, stepCounts } = useStore();
 
   return (
-    <div className="flex w-full min-h-screen">
+    <div className="flex w-full min-h-screen relative pb-20 md:pb-0">
       <Sidebar />
-      <main className="flex-1 flex flex-col bg-dark-bg p-6 overflow-y-auto">
+      <BottomTaskbar />
+      <main className="flex-1 flex flex-col bg-dark-bg p-6 overflow-y-auto mb-20">
         <header className="mb-6 flex justify-between items-end">
           <div>
             <h2 className="text-3xl font-bold text-white mb-2">

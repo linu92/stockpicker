@@ -7,7 +7,7 @@ import functools
 import FinanceDataReader as fdr
 from datetime import datetime, timedelta
 from sqlalchemy import text
-from .database import get_db_engine, is_postgres
+from database import get_db_engine, is_postgres
 import FinanceDataReader as fdr
 
 def fetch_history(code, start_date):

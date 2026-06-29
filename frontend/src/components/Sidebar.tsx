@@ -34,7 +34,7 @@ export default function Sidebar() {
         {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
 
-      <div className="mb-8 overflow-hidden whitespace-nowrap">
+      <div className="mb-6 overflow-hidden whitespace-nowrap">
         {isSidebarCollapsed ? (
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent text-center">
             SP
@@ -55,33 +55,6 @@ export default function Sidebar() {
           </>
         )}
       </div>
-
-      <nav className="flex flex-col gap-2 mb-6">
-        <button 
-          onClick={() => setViewMode('search')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'search' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'} ${isSidebarCollapsed ? 'justify-center' : ''}`}
-          title={isSidebarCollapsed ? "종목 검색기" : ""}
-        >
-          <Search size={18} />
-          {!isSidebarCollapsed && <span>종목 검색기</span>}
-        </button>
-        <button 
-          onClick={() => setViewMode('news')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'news' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'} ${isSidebarCollapsed ? 'justify-center' : ''}`}
-          title={isSidebarCollapsed ? "기사보기 모드" : ""}
-        >
-          <Newspaper size={18} />
-          {!isSidebarCollapsed && <span>기사보기 모드</span>}
-        </button>
-        <button 
-          onClick={() => setViewMode('watchlist')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${viewMode === 'watchlist' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-300 hover:bg-slate-800'} ${isSidebarCollapsed ? 'justify-center' : ''}`}
-          title={isSidebarCollapsed ? "관심 종목 모드" : ""}
-        >
-          <Star size={18} className={viewMode === 'watchlist' ? 'text-yellow-200' : 'text-yellow-400'} />
-          {!isSidebarCollapsed && <span>관심 종목 모드</span>}
-        </button>
-      </nav>
 
       {!isSidebarCollapsed && viewMode === 'search' && (
         <>

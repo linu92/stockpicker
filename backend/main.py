@@ -2,10 +2,9 @@ from fastapi import FastAPI, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-from .database import get_db_engine
-from .database import get_db_engine, init_db
-from .services import get_krx_listing, fetch_history, analyze_stock, crawl_naver_news_search, fetch_article_html, fetch_minute_data, fetch_index
-from .models import SearchRequest
+from database import get_db_engine, init_db
+from services import get_krx_listing, fetch_history, analyze_stock, crawl_naver_news_search, fetch_article_html, fetch_minute_data, fetch_index
+from models import SearchRequest
 from datetime import datetime, timedelta
 import concurrent.futures
 import pandas as pd
