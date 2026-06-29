@@ -33,6 +33,7 @@ def init_db():
                     )
                 '''))
                 conn.execute(text("ALTER TABLE news ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE"))
+                conn.execute(text("ALTER TABLE news ADD COLUMN IF NOT EXISTS is_starred BOOLEAN DEFAULT FALSE"))
                 conn.commit()
                 conn.execute(text('''
                     CREATE TABLE IF NOT EXISTS search_presets (
@@ -62,6 +63,10 @@ def init_db():
                 '''))
                 try:
                     conn.execute(text("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT FALSE"))
+                except:
+                    pass
+                try:
+                    conn.execute(text("ALTER TABLE news ADD COLUMN is_starred BOOLEAN DEFAULT FALSE"))
                 except:
                     pass
                 conn.execute(text('''

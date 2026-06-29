@@ -2,7 +2,7 @@
 
 import { useStore } from "@/store/useStore";
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
-import { ChevronDown, ChevronUp, X, Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, X, Filter, Star } from "lucide-react";
 
 export default function NewsView() {
   const { 
@@ -11,13 +11,15 @@ export default function NewsView() {
     fetchNews, 
     fetchNewsContent, 
     selectedNewsHtml, 
-    selectedNewsUrl 
+    selectedNewsUrl,
+    toggleNewsStar
   } = useStore();
 
   const expandedRef = useRef<HTMLLIElement>(null);
   
   // Local filtering state
   const [hideRead, setHideRead] = useState(false);
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
   const [filterInput, setFilterInput] = useState("");
   const [filterTags, setFilterTags] = useState<string[]>([]);
 
@@ -50,6 +52,8 @@ export default function NewsView() {
   };
 
   const filteredNewsList = newsList.filter(news => {
+    if (showStarredOnly && !news.is_starred) return false;
+    
     // Do not hide the currently expanded article
     if (hideRead && news.is_read && news.url !== selectedNewsUrl) return false;
     
@@ -70,6 +74,16 @@ export default function NewsView() {
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-white">수집된 기사 목록</h3>
             <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-yellow-400 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={showStarredOnly}
+                  onChange={(e) => setShowStarredOnly(e.target.checked)}
+                  className="w-4 h-4 accent-yellow-500 cursor-pointer"
+                />
+                <Star size={14} className={showStarredOnly ? "fill-yellow-500 text-yellow-500" : ""} />
+                별표 기사만
+              </label>
               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors">
                 <input 
                   type="checkbox" 
@@ -127,18 +141,32 @@ export default function NewsView() {
                       }`}
                     >
                       {/* Header (Clickable) */}
-                      <div 
-                        onClick={() => fetchNewsContent(news.url)}
-                        className={`p-5 cursor-pointer flex justify-between items-start gap-4 ${news.is_read && !isExpanded ? 'opacity-60' : ''}`}
-                      >
-                        <div className="flex-1">
+                      <div className={`p-5 flex justify-between items-start gap-4 ${news.is_read && !isExpanded ? 'opacity-60' : ''}`}>
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => fetchNewsContent(news.url)}
+                        >
                           <div className="text-xs text-blue-400 mb-2 font-medium">{news.source} <span className="text-slate-500 mx-1">|</span> <span className="text-slate-400">{news.published_date}</span></div>
                           <div className={`text-lg transition-colors ${isExpanded ? 'text-blue-300 font-bold' : 'text-slate-200 font-medium'}`}>
                             {news.title}
                           </div>
                         </div>
-                        <div className="mt-1 text-slate-500">
-                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        <div className="flex items-center gap-4 mt-1">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleNewsStar(news.url, !news.is_starred);
+                            }}
+                            className="text-slate-500 hover:text-yellow-400 transition-colors"
+                          >
+                            <Star size={20} className={news.is_starred ? "fill-yellow-500 text-yellow-500" : ""} />
+                          </button>
+                          <div 
+                            className="text-slate-500 cursor-pointer"
+                            onClick={() => fetchNewsContent(news.url)}
+                          >
+                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                          </div>
                         </div>
                       </div>
 

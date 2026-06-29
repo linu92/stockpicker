@@ -247,7 +247,7 @@ def get_chart_data(
 def get_news(keyword: str = "전체"):
     engine = get_db_engine()
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT id, title, url, source, published_date, summary, is_read FROM news WHERE keyword = :kw ORDER BY published_date DESC, id ASC LIMIT 200"), {"kw": keyword})
+        result = conn.execute(text("SELECT id, title, url, source, published_date, summary, is_read, is_starred FROM news WHERE keyword = :kw ORDER BY published_date DESC, id ASC LIMIT 200"), {"kw": keyword})
         data = [dict(row._mapping) for row in result]
     return {"data": data}
 
@@ -271,6 +271,21 @@ def get_news_content(url: str):
     except:
         pass
     return {"html": html}
+
+class StarRequest(BaseModel):
+    url: str
+    is_starred: bool
+
+@app.post("/api/news/star")
+def toggle_news_star(req: StarRequest):
+    engine = get_db_engine()
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("UPDATE news SET is_starred = :star WHERE url = :url"), {"url": req.url, "star": req.is_starred})
+            conn.commit()
+    except Exception as e:
+        print("Star error:", e)
+    return {"status": "ok"}
 
 # ==========================================
 # WATCHLIST API

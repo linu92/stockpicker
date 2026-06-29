@@ -84,6 +84,7 @@ interface AppState {
   setSelectedNewsHtml: (html: string | null) => void;
   setSelectedNewsUrl: (url: string | null) => void;
   fetchNewsContent: (url: string) => void;
+  toggleNewsStar: (url: string, is_starred: boolean) => Promise<void>;
   isCrawlingNews: boolean;
   crawlNewsProgress: number;
   crawlNewsTotal: number;
@@ -364,6 +365,22 @@ export const useStore = create<AppState>((set, get) => ({
       get().fetchNews();
     } catch (error) {
       set({ selectedNewsHtml: "<div>기사 본문 로딩 실패</div>" });
+    }
+  },
+  
+  toggleNewsStar: async (url, is_starred) => {
+    // Optimistic update
+    set((state) => ({
+      newsList: state.newsList.map(news => 
+        news.url === url ? { ...news, is_starred: is_starred } : news
+      )
+    }));
+    try {
+      await axios.post(`${API_BASE}/api/news/star`, { url, is_starred });
+    } catch (error) {
+      console.error("Star toggle failed", error);
+      // Rollback on error
+      get().fetchNews();
     }
   },
   
