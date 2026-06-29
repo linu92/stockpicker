@@ -266,8 +266,9 @@ def crawl_naver_news_search(keyword, start_date=None, end_date=None, stream=Fals
                             else:
                                 i += 1
                             
-                            if keyword.strip():
-                                if keyword.strip() not in (title + ' ' + summary):
+                            search_kw = keyword.strip()
+                            if search_kw and search_kw != "전체":
+                                if search_kw not in (title + ' ' + summary):
                                     continue
                             
                             all_news.append({
