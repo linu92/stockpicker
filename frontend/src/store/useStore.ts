@@ -405,7 +405,6 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await axios.post(`${API_BASE}/api/watchlist`, item);
       get().fetchWatchlist();
-      alert("관심 종목에 추가되었습니다.");
     } catch (error) {
       console.error("Add to watchlist failed", error);
     }
