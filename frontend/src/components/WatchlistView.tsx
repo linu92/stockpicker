@@ -43,15 +43,25 @@ export default function WatchlistView() {
   };
 
   return (
-    <div className="flex w-full h-full gap-4">
-      <div className="w-1/2 bg-dark-panel border border-dark-border rounded-2xl shadow-xl flex flex-col overflow-hidden">
+    <div className="flex flex-col w-full gap-4">
+      <div className="w-full min-h-[400px] max-h-[500px] bg-dark-panel border border-dark-border rounded-2xl shadow-xl overflow-hidden">
+        {selectedStock ? (
+          <StockChart />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-500">
+            아래 목록에서 종목을 선택하여 차트를 확인하세요.
+          </div>
+        )}
+      </div>
+
+      <div className="w-full min-h-[300px] max-h-[600px] bg-dark-panel border border-dark-border rounded-2xl shadow-xl flex flex-col overflow-hidden">
         <div className="p-4 bg-slate-800/50 border-b border-dark-border flex justify-between items-center">
           <h3 className="font-bold text-white flex items-center gap-2">⭐ 내 관심 종목</h3>
           <span className="text-xs bg-slate-700 px-2 py-1 rounded-full">{watchlist.length}개</span>
         </div>
         
         {isFetchingWatchlist ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center min-h-[200px]">
             <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
@@ -125,16 +135,6 @@ export default function WatchlistView() {
                 관심 종목이 없습니다.<br/>검색기에서 종목을 추가해보세요.
               </div>
             )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 bg-dark-panel border border-dark-border rounded-2xl shadow-xl overflow-hidden">
-        {selectedStock ? (
-          <StockChart />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-500">
-            좌측 목록에서 종목을 선택하여 차트를 확인하세요.
           </div>
         )}
       </div>
