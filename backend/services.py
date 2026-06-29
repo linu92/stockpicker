@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import pandas as pd
 import time
+import json
 import functools
 import FinanceDataReader as fdr
 from datetime import datetime, timedelta
