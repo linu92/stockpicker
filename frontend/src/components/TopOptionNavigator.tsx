@@ -8,7 +8,7 @@ export default function TopOptionNavigator() {
   const { 
     viewMode, searchParams, setSearchParams, performSearch, isSearching, searchProgress, searchTotal, searchStatusMessage, 
     newsKeyword, setNewsKeyword, fetchNews, triggerNewsCrawl, isCrawlingNews, crawlNewsProgress, crawlNewsTotal, crawlStatusMessage,
-    fetchWatchlist 
+    fetchWatchlist, stepCounts 
   } = useStore();
   const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -134,21 +134,56 @@ export default function TopOptionNavigator() {
           </div>
         </div>
 
-        {/* Action Button */}
+        {/* Action Button & Progress */}
         <div className="flex justify-end border-t border-dark-border pt-4">
           {isSearching ? (
-            <div className="flex-1 bg-slate-800 rounded-xl p-3 border border-slate-700 shadow-inner flex items-center justify-between gap-4">
-              <div className="text-xs text-slate-400 min-w-[120px]">
-                {searchStatusMessage || '분석 중...'}
-                {searchTotal > 0 && <span className="ml-2 font-bold text-white">{searchProgress} / {searchTotal}</span>}
+            <div className="w-full font-mono text-xs text-green-400 bg-black p-5 rounded-xl border border-slate-700 shadow-inner">
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-slate-400 flex items-center">
+                  <span className="inline-block w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></span>
+                  <span className="text-sm">&gt; 실시간 종목 분석 스캐너 작동 중... <span className="animate-pulse ml-1 text-green-400">_</span></span>
+                </div>
+                <div className="text-blue-400 font-bold">{elapsedTime}초 경과</div>
               </div>
-              <div className="flex-1 bg-slate-900 rounded-full h-3 overflow-hidden">
-                <div 
-                  className={`${searchTotal > 0 ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-blue-500/50 animate-pulse'} h-full rounded-full transition-all duration-300 ease-out`}
-                  style={{ width: `${searchTotal > 0 ? (searchProgress / searchTotal) * 100 : 100}%` }}
-                ></div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 justify-between">
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between py-1 border-b border-slate-800">
+                    <span>&gt; 1단계 (기본 필터) 통과:</span>
+                    <span className="text-white font-semibold">{stepCounts[1] || 0} 종목</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800">
+                    <span>&gt; 2단계 (추세 필터) 통과:</span>
+                    <span className="text-white font-semibold">{stepCounts[2] || 0} 종목</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-800">
+                    <span>&gt; 3단계 (눌림 필터) 통과:</span>
+                    <span className="text-white font-semibold">{stepCounts[3] || 0} 종목</span>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between py-1 border-b border-slate-800">
+                    <span>&gt; 4단계 (반등 필터) 통과:</span>
+                    <span className="text-white font-semibold">{stepCounts[4] || 0} 종목</span>
+                  </div>
+                  <div className="flex justify-between py-1 text-blue-400 font-bold bg-blue-900/20 px-2 rounded">
+                    <span>&gt; 5단계 (최종 합격) 종목:</span>
+                    <span>{stepCounts[5] || 0} 종목</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-slate-800">
+                    <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                      <span>{searchStatusMessage || '검색 중...'}</span>
+                      {searchTotal > 0 && <span>{searchProgress} / {searchTotal}</span>}
+                    </div>
+                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className={`${searchTotal > 0 ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-blue-500/50 animate-pulse'} h-1.5 rounded-full transition-all duration-300 ease-out`}
+                        style={{ width: `${searchTotal > 0 ? (searchProgress / searchTotal) * 100 : 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="text-xs font-medium text-blue-400 min-w-[60px] text-right">{elapsedTime}초</div>
             </div>
           ) : (
             <button 

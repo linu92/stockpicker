@@ -98,38 +98,6 @@ export default function Home() {
                             </tr>
                           );
                         })}
-                        {isSearching && (
-                          <tr>
-                            <td colSpan={7} className="p-8 bg-slate-900/50">
-                              <div className="font-mono text-xs text-green-400 max-w-lg mx-auto bg-black p-4 rounded-lg border border-slate-700 shadow-inner">
-                                <div className="mb-3 text-slate-400 flex items-center">
-                                  <span className="inline-block w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></span>
-                                  &gt; 실시간 종목 분석 스캐너 작동 중... <span className="animate-pulse ml-1">_</span>
-                                </div>
-                                <div className="flex justify-between py-1.5 border-b border-slate-800">
-                                  <span>&gt; 1단계 (기본 필터) 통과:</span>
-                                  <span className="text-white">{stepCounts[1] || 0} 종목</span>
-                                </div>
-                                <div className="flex justify-between py-1.5 border-b border-slate-800">
-                                  <span>&gt; 2단계 (추세 필터) 통과:</span>
-                                  <span className="text-white">{stepCounts[2] || 0} 종목</span>
-                                </div>
-                                <div className="flex justify-between py-1.5 border-b border-slate-800">
-                                  <span>&gt; 3단계 (눌림 필터) 통과:</span>
-                                  <span className="text-white">{stepCounts[3] || 0} 종목</span>
-                                </div>
-                                <div className="flex justify-between py-1.5 border-b border-slate-800">
-                                  <span>&gt; 4단계 (반등 필터) 통과:</span>
-                                  <span className="text-white">{stepCounts[4] || 0} 종목</span>
-                                </div>
-                                <div className="flex justify-between py-1.5 text-blue-400 font-bold mt-1">
-                                  <span>&gt; 5단계 (최종 합격) 종목:</span>
-                                  <span>{stepCounts[5] || 0} 종목</span>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
                       </tbody>
                     </table>
                   </div>
