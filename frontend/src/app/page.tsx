@@ -47,7 +47,7 @@ export default function Home() {
               </div>
 
               {/* Table Area */}
-              <div className="flex-1 min-h-[300px] bg-dark-panel border border-dark-border rounded-2xl shadow-xl flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-[300px] max-h-[600px] bg-dark-panel border border-dark-border rounded-2xl shadow-xl flex flex-col overflow-hidden">
                 {searchResults.length > 0 || isSearching ? (
                   <div className="flex-1 overflow-auto custom-scrollbar p-4 relative">
                     <table className="w-full text-left text-sm text-slate-300">
