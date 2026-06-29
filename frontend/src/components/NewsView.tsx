@@ -50,7 +50,9 @@ export default function NewsView() {
   };
 
   const filteredNewsList = newsList.filter(news => {
-    if (hideRead && news.is_read) return false;
+    // Do not hide the currently expanded article
+    if (hideRead && news.is_read && news.url !== selectedNewsUrl) return false;
+    
     if (filterTags.length > 0) {
       const textToSearch = `${news.title} ${news.source} ${news.summary || ''}`.toLowerCase();
       // Match if ANY of the tags are in the text
